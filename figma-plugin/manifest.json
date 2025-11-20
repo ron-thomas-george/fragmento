@@ -1,0 +1,15 @@
+{
+  "name": "Fragmento",
+  "id": "fragmento-design-tokens",
+  "api": "1.0.0",
+  "main": "dist/plugin.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "permissions": ["currentuser"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://fragmento.app",
+      "https://*.supabase.co"
+    ]
+  }
+}
