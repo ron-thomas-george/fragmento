@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export default function SelectPlanPage() {
+function SelectPlanForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const organizationId = searchParams.get("organizationId");
@@ -69,5 +70,24 @@ export default function SelectPlanPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function SelectPlanPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-2xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">Select a plan</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Loading...
+            </p>
+          </div>
+        </div>
+      </main>
+    }>
+      <SelectPlanForm />
+    </Suspense>
   );
 }

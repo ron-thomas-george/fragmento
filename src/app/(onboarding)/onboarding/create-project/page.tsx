@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function CreateProjectPage() {
+function CreateProjectForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const organizationId = searchParams.get("organizationId");
@@ -352,5 +352,24 @@ export default function CreateProjectPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CreateProjectPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">Create your first project</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Loading...
+            </p>
+          </div>
+        </div>
+      </main>
+    }>
+      <CreateProjectForm />
+    </Suspense>
   );
 }
