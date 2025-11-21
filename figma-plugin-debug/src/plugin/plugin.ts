@@ -421,18 +421,11 @@ async function handleFetchOrganizations(authToken: AuthToken) {
   try {
     console.log('Fetching organizations...');
     
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
     const response = await fetch('https://fragmento-theta.vercel.app/api/organizations', {
       headers: {
         'Authorization': `Bearer ${authToken.token}`
-      },
-      signal: controller.signal
+      }
     });
-    
-    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch organizations: ${response.statusText}`);
