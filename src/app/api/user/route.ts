@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
-import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
+import { createClient } from '@supabase/supabase-js';
 
 // CORS headers for Figma plugin
 const corsHeaders = {
@@ -46,8 +46,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user information from Supabase
-    const supabase = createSupabaseAdminClient();
+    // Get user information from Supabase using service role key
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+    
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+    
     const { data: user, error: userError } = await supabase.auth.admin.getUserById(decoded.userId);
 
     if (userError || !user) {
