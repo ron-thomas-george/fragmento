@@ -114,28 +114,25 @@ async function fetchUserInfoBackground(authToken: AuthToken) {
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
-  console.log('Plugin received message:', msg.type);
-  
-  switch (msg.type) {
-    case 'ping':
-      console.log('Ping received, sending pong...');
-      figma.ui.postMessage({
-        type: 'pong',
-        payload: { message: 'Plugin is connected and working!' }
-      });
-      break;
-    case 'get-auth-status':
-      console.log('Manual auth status check requested');
-      await init(); // Re-run initialization to send current auth status
-      break;
+  try {
+    console.log('Plugin received message:', msg.type);
+    switch (msg.type) {
+      case 'ping':
+        console.log('Ping received, sending pong...');
+        figma.ui.postMessage({
+          type: 'pong',
+          payload: { message: 'Plugin is connected and working!' }
+        });
+        break;
+      case 'get-auth-status':
+        console.log('Manual auth status check requested');
+        await init(); // Re-run initialization to send current auth status
+        break;
         
-    case 'authenticate':
-      await handleAuthentication();
-      break;
+      case 'authenticate':
+        await handleAuthentication();
+        break;
         
-    case 'set-auth-token':
-      await handleSetAuthToken(msg.payload);
-      break;
       case 'set-auth-token':
         await handleSetAuthToken(msg.payload);
         break;

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'Missing or invalid authorization header' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       console.error('JWT_SECRET not configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       return NextResponse.json(
         { error: 'Invalid or expired token' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (userError || !user) {
       return NextResponse.json(
         { error: 'User not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     console.error('User API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
