@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Fragmento</title>
+  <link rel="stylesheet" href="ui.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+    }
+    #react-page {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="react-page">
+    <div style="padding: 20px; text-align: center;">
+      <h2>Fragmento</h2>
+      <p>Loading...</p>
+    </div>
+  </div>
+  
+  <script>
+    // Add error handling
+    window.onerror = function(msg, url, line, col, error) {
+      console.error('Error:', msg, 'at', url, ':', line, ':', col);
+      return false;
+    };
+  </script>
+  <script src="vanilla.js"></script>
+</body>
+</html>

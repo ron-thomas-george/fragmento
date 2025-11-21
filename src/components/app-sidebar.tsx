@@ -174,7 +174,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <div className="flex w-full flex-col gap-1 px-2 py-2 text-xs text-muted-foreground">
+          <div>
+            Org plan: <span className="font-medium text-foreground">TrialUpgrade</span>
+          </div>
+          <NavUser user={data.user} />
+        </div>
       </SidebarFooter>
     </Sidebar>
   )

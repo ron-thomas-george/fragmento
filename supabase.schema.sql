@@ -54,7 +54,8 @@ create table if not exists changes (
   change_type text not null check (change_type in ('created','modified','deleted','renamed')),
   before jsonb,
   after jsonb,
-  created_by uuid,
+  created_by text,
+  released_in uuid references releases(id) on delete set null,
   created_at timestamptz default now()
 );
 
@@ -62,26 +63,30 @@ create table if not exists releases (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references projects(id) on delete cascade,
   version text not null,
-  kind text not null check (kind in ('major','minor','patch')),
-  message text not null,
-  notes text,
-  created_by uuid,
+  type text not null check (type in ('major','minor','patch')),
+  commit_message text not null,
+  release_notes text,
+  changes_count integer default 0,
+  created_by text,
   created_at timestamptz default now()
 );
 
 create table if not exists github_integrations (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references projects(id) on delete cascade,
-  repo_owner text not null,
-  repo_name text not null,
-  default_branch text not null default 'main',
+  access_token text not null,
+  repository_owner text not null,
+  repository_name text not null,
+  branch_name text not null default 'main',
+  verified boolean default false,
   created_at timestamptz default now()
 );
 
 create table if not exists slack_integrations (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
   webhook_url text not null,
-  channel text not null,
+  channel_name text not null,
+  verified boolean default false,
   created_at timestamptz default now()
 );
