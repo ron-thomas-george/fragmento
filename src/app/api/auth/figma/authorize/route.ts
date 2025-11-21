@@ -4,9 +4,12 @@ import { sign } from 'jsonwebtoken';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('Figma authorization request received');
     const { userId, state } = await request.json();
+    console.log('Request data:', { userId: userId?.substring(0, 8) + '...', state });
 
     if (!userId || !state) {
+      console.error('Missing required parameters:', { userId: !!userId, state: !!state });
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -14,15 +17,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user is authenticated
+    console.log('Creating Supabase server client...');
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user || user.id !== userId) {
+    if (authError) {
+      console.error('Supabase auth error:', authError);
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Authentication failed' },
         { status: 401 }
       );
     }
+
+    if (!user) {
+      console.error('No user found in session');
+      return NextResponse.json(
+        { error: 'No authenticated user' },
+        { status: 401 }
+      );
+    }
+
+    if (user.id !== userId) {
+      console.error('User ID mismatch:', { sessionUserId: user.id, requestUserId: userId });
+      return NextResponse.json(
+        { error: 'User ID mismatch' },
+        { status: 401 }
+      );
+    }
+
+    console.log('User authenticated:', user.email);
 
     // Generate JWT token for Figma plugin
     const jwtSecret = process.env.JWT_SECRET;
