@@ -636,24 +636,28 @@
             ${collections.map(collection => renderCollection(collection)).join('')}
           </div>
           
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e5e5;">
-            <button onclick="confirmImport()" style="
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e5e5; background: white; position: sticky; bottom: 0; z-index: 100;">
+            <button id="pushButton" onclick="confirmImport()" style="
               width: 100%; 
-              padding: 12px 24px; 
+              padding: 16px 24px; 
               background: #18a0fb; 
               color: white; 
               border: none; 
-              border-radius: 6px; 
+              border-radius: 8px; 
               cursor: pointer; 
-              font-weight: 500; 
-              font-size: 14px;
-              transition: background-color 0.2s;
-            " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
-              Push to Fragmento
+              font-weight: 600; 
+              font-size: 16px;
+              transition: all 0.2s ease;
+              box-shadow: 0 2px 8px rgba(24, 160, 251, 0.3);
+            " onmouseover="this.style.background='#1590ea'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(24, 160, 251, 0.4)'" onmouseout="this.style.background='#18a0fb'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(24, 160, 251, 0.3)'">
+              🚀 Push to Fragmento
             </button>
           </div>
         </div>
       `;
+      
+      // Update push button after rendering
+      setTimeout(() => updatePushButton(), 100);
     }
 
     function renderCollection(collection) {
@@ -693,7 +697,7 @@
       return `
         <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: ${bgColor};">
           <div style="padding: 12px 16px; border-right: 1px solid #f3f4f6; display: flex; align-items: center;">
-            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked style="margin-right: 8px;">
+            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="margin-right: 8px;">
             <div style="flex: 1;">
               <div style="display: flex; align-items: center; gap: 6px;">
                 <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #1a1a1a;">
@@ -749,6 +753,27 @@
       checkboxes.forEach(checkbox => {
         checkbox.checked = selectAll.checked;
       });
+      
+      updatePushButton();
+    }
+
+    function updatePushButton() {
+      const selectedCount = document.querySelectorAll('.variable-checkbox:checked').length;
+      const pushButton = document.getElementById('pushButton');
+      
+      if (pushButton) {
+        if (selectedCount === 0) {
+          pushButton.textContent = '🚀 Push to Fragmento';
+          pushButton.style.opacity = '0.5';
+          pushButton.style.cursor = 'not-allowed';
+          pushButton.disabled = true;
+        } else {
+          pushButton.textContent = `🚀 Push ${selectedCount} Variable${selectedCount === 1 ? '' : 's'} to Fragmento`;
+          pushButton.style.opacity = '1';
+          pushButton.style.cursor = 'pointer';
+          pushButton.disabled = false;
+        }
+      }
     }
 
     function toggleCollection(collectionId) {
@@ -758,6 +783,8 @@
       collectionCheckboxes.forEach(checkbox => {
         checkbox.checked = collectionToggle.checked;
       });
+      
+      updatePushButton();
     }
 
     function getTypeColor(tokenType) {

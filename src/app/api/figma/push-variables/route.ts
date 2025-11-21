@@ -102,8 +102,7 @@ export async function POST(request: NextRequest) {
               project_id: projectId,
               name: tokenSet.name,
               description: `Imported from Figma collection: ${tokenSet.name}`,
-              hierarchy_level: 1,
-              reference_permissions: 'read_write'
+              level: 1
             })
             .select('id')
             .single();
@@ -141,7 +140,7 @@ export async function POST(request: NextRequest) {
             const { data: existingToken, error: tokenError } = await supabase
               .from('tokens')
               .select('id, name, value, type, description')
-              .eq('set_id', setId)
+              .eq('token_set_id', setId)
               .eq('name', token.name)
               .single();
 
@@ -150,11 +149,13 @@ export async function POST(request: NextRequest) {
               const { data: newToken, error: createTokenError } = await supabase
                 .from('tokens')
                 .insert({
-                  set_id: setId,
+                  project_id: projectId,
+                  token_set_id: setId,
                   name: token.name,
                   type: token.type,
                   value: token.value,
                   description: token.description || '',
+                  source: 'figma',
                   created_by: decoded.userId
                 })
                 .select('id')
@@ -168,17 +169,13 @@ export async function POST(request: NextRequest) {
               results.tokensCreated++;
               
               // Record token creation change
-              await recordPendingChange(supabase, {
+              await recordChange(supabase, {
                 project_id: projectId,
                 token_id: newToken.id,
-                change_type: 'added',
-                new_value: token.value,
-                source: 'figma_import',
-                created_by: decoded.userId,
-                metadata: {
-                  figma_collection: tokenSet.name,
-                  token_type: token.type
-                }
+                change_type: 'created',
+                after: { value: token.value, type: token.type },
+                source: 'figma',
+                created_by: decoded.userId
               });
 
               results.changes.push({
@@ -209,19 +206,14 @@ export async function POST(request: NextRequest) {
               results.tokensUpdated++;
               
               // Record token update change
-              await recordPendingChange(supabase, {
+              await recordChange(supabase, {
                 project_id: projectId,
                 token_id: existingToken.id,
                 change_type: 'modified',
-                old_value: existingToken.value,
-                new_value: token.value,
-                source: 'figma_import',
-                created_by: decoded.userId,
-                metadata: {
-                  figma_collection: tokenSet.name,
-                  old_type: existingToken.type,
-                  new_type: token.type
-                }
+                before: { value: existingToken.value, type: existingToken.type },
+                after: { value: token.value, type: token.type },
+                source: 'figma',
+                created_by: decoded.userId
               });
 
               results.changes.push({
@@ -321,27 +313,26 @@ function validateToken(token: any): string | null {
   return null;
 }
 
-// Function to record pending changes
-async function recordPendingChange(supabase: any, change: any) {
+// Function to record changes
+async function recordChange(supabase: any, change: any) {
   try {
     const { error } = await supabase
-      .from('pending_changes')
+      .from('changes')
       .insert({
         project_id: change.project_id,
         token_id: change.token_id,
         change_type: change.change_type,
-        old_value: change.old_value || null,
-        new_value: change.new_value,
+        before: change.before || null,
+        after: change.after || null,
         source: change.source,
         created_by: change.created_by,
-        metadata: change.metadata || {},
         created_at: new Date().toISOString()
       });
 
     if (error) {
-      console.error('Error recording pending change:', error);
+      console.error('Error recording change:', error);
     }
   } catch (error) {
-    console.error('Error in recordPendingChange:', error);
+    console.error('Error in recordChange:', error);
   }
 }
