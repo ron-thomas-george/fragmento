@@ -136,12 +136,14 @@ class FragmentoPlugin {
   async handleTokenPolling(state, attempt) {
     try {
       console.log(`UI polling attempt ${attempt} for state: ${state}`);
+      console.log('Making request to:', `https://fragmento-theta.vercel.app/api/figma/poll-token?state=${state}`);
       
       const response = await fetch(`https://fragmento-theta.vercel.app/api/figma/poll-token?state=${state}`);
+      console.log('Polling response:', response.status, response.statusText);
       
       if (response.ok) {
         const tokenData = await response.json();
-        console.log('Token found via UI polling');
+        console.log('Token found via UI polling!', { hasToken: !!tokenData.token, userId: tokenData.userId?.substring(0, 8) + '...' });
         
         // Send token back to plugin
         this.postMessage({
@@ -154,9 +156,11 @@ class FragmentoPlugin {
         });
       } else if (response.status === 404) {
         // Token not ready yet, plugin will continue polling
-        console.log('Token not ready, plugin will continue polling...');
+        console.log('Token not ready (404), plugin will continue polling...');
       } else {
-        console.error('Token polling failed:', response.status);
+        console.error('Token polling failed with status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
       }
     } catch (error) {
       console.error('UI token polling error:', error);

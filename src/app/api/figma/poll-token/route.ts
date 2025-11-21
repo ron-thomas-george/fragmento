@@ -21,8 +21,10 @@ setInterval(() => {
 export async function POST(request: NextRequest) {
   try {
     const { state, token, userId, expiresIn } = await request.json();
+    console.log('Storing token for polling:', { state, userId: userId?.substring(0, 8) + '...', hasToken: !!token });
 
     if (!state || !token || !userId || !expiresIn) {
+      console.error('Missing required parameters for token storage:', { state: !!state, token: !!token, userId: !!userId, expiresIn: !!expiresIn });
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now()
     });
 
+    console.log('Token stored successfully. Current storage size:', tokenStorage.size);
     return NextResponse.json({ success: true });
 
   } catch (error) {
@@ -52,8 +55,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const state = searchParams.get('state');
+    console.log('Polling for token:', { state, storageSize: tokenStorage.size });
 
     if (!state) {
+      console.error('Missing state parameter in polling request');
       return NextResponse.json(
         { error: 'Missing state parameter' },
         { status: 400 }
@@ -63,12 +68,15 @@ export async function GET(request: NextRequest) {
     const tokenData = tokenStorage.get(state);
     
     if (!tokenData) {
+      console.log('Token not found for state:', state, 'Available states:', Array.from(tokenStorage.keys()));
       return NextResponse.json(
         { error: 'Token not found' },
         { status: 404 }
       );
     }
 
+    console.log('Token found! Returning to plugin:', { userId: tokenData.userId?.substring(0, 8) + '...' });
+    
     // Remove token after retrieval (one-time use)
     tokenStorage.delete(state);
 
