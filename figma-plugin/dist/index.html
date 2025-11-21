@@ -376,7 +376,7 @@
         } else if (msg.type === 'variables-scanned') {
           // Show variables after scanning
           console.log('Variables scanned:', msg.payload);
-          showVariablesInterface(msg.payload.collections, msg.payload.totalCount);
+          showVariablesInterface(msg.payload.collections, msg.payload.totalCount, msg.payload.changeAnalysis, msg.payload.isFirstScan);
         } else if (msg.type === 'push-progress') {
           // Handle push progress updates
           console.log('Push progress:', msg.payload);
@@ -603,14 +603,44 @@
       }
     }
 
-    function showVariablesInterface(collections, totalCount) {
+    function showVariablesInterface(collections, totalCount, changeAnalysis, isFirstScan) {
       const mainContent = document.getElementById('mainContent');
       if (!mainContent) return;
       
       mainContent.innerHTML = `
         <div>
+          ${!isFirstScan && changeAnalysis ? `
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <h3 style="color: #0369a1; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">📊 Changes Detected</h3>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px;">
+                <div style="text-align: center; padding: 8px; background: #dcfce7; border-radius: 6px;">
+                  <div style="color: #16a34a; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalAdded}</div>
+                  <div style="color: #15803d; font-size: 11px;">Added</div>
+                </div>
+                <div style="text-align: center; padding: 8px; background: #fef3c7; border-radius: 6px;">
+                  <div style="color: #d97706; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalModified}</div>
+                  <div style="color: #92400e; font-size: 11px;">Modified</div>
+                </div>
+                <div style="text-align: center; padding: 8px; background: #fee2e2; border-radius: 6px;">
+                  <div style="color: #dc2626; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalDeleted}</div>
+                  <div style="color: #b91c1c; font-size: 11px;">Deleted</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button onclick="showOnlyChanges()" style="flex: 1; padding: 6px 12px; background: #0ea5e9; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                  Show Only Changes
+                </button>
+                <button onclick="showAllVariables()" style="flex: 1; padding: 6px 12px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                  Show All Variables
+                </button>
+              </div>
+            </div>
+          ` : ''}
+          
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">All Variables (${totalCount})</h2>
+            <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">
+              ${!isFirstScan && changeAnalysis ? 'All Variables' : 'All Variables'} (${totalCount})
+            </h2>
             <button onclick="importFigmaVariables()" style="
               padding: 8px 16px; 
               background: #f3f4f6; 
@@ -656,8 +686,45 @@
         </div>
       `;
       
+      // Store change analysis globally for filtering
+      window.currentChangeAnalysis = changeAnalysis;
+      window.currentCollections = collections;
+      window.currentTotalCount = totalCount;
+      window.currentIsFirstScan = isFirstScan;
+      
       // Update push button after rendering
       setTimeout(() => updatePushButton(), 100);
+    }
+
+    function showOnlyChanges() {
+      if (!window.currentChangeAnalysis) return;
+      
+      const changeAnalysis = window.currentChangeAnalysis;
+      const filteredCollections = [];
+      
+      // Create collections with only changed variables
+      window.currentCollections.forEach(collection => {
+        const changedVariables = collection.variables.filter(variable => {
+          const variableKey = `${collection.id}:${variable.id}`;
+          return changeAnalysis.added.some(v => `${v.collectionId}:${v.id}` === variableKey) ||
+                 changeAnalysis.modified.some(v => `${v.collectionId}:${v.id}` === variableKey);
+        });
+        
+        if (changedVariables.length > 0) {
+          filteredCollections.push({
+            ...collection,
+            variables: changedVariables
+          });
+        }
+      });
+      
+      const totalChanges = changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified;
+      showVariablesInterface(filteredCollections, totalChanges, changeAnalysis, window.currentIsFirstScan);
+    }
+
+    function showAllVariables() {
+      if (!window.currentCollections) return;
+      showVariablesInterface(window.currentCollections, window.currentTotalCount, window.currentChangeAnalysis, window.currentIsFirstScan);
     }
 
     function renderCollection(collection) {
@@ -694,8 +761,26 @@
       const warningIcon = variable.hasWarning ? '⚠️' : '';
       const typeColor = getTypeColor(variable.tokenType);
       
+      // Check if this variable has changes
+      let changeIndicator = '';
+      let changeBgColor = bgColor;
+      
+      if (window.currentChangeAnalysis) {
+        const variableKey = `${collectionId}:${variable.id}`;
+        const isAdded = window.currentChangeAnalysis.added.some(v => `${v.collectionId}:${v.id}` === variableKey);
+        const isModified = window.currentChangeAnalysis.modified.some(v => `${v.collectionId}:${v.id}` === variableKey);
+        
+        if (isAdded) {
+          changeIndicator = '<span style="background: #16a34a; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 6px;">NEW</span>';
+          changeBgColor = index % 2 === 0 ? '#f0fdf4' : '#dcfce7';
+        } else if (isModified) {
+          changeIndicator = '<span style="background: #d97706; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 6px;">MOD</span>';
+          changeBgColor = index % 2 === 0 ? '#fffbeb' : '#fef3c7';
+        }
+      }
+      
       return `
-        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: ${bgColor};">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: ${changeBgColor};">
           <div style="padding: 12px 16px; border-right: 1px solid #f3f4f6; display: flex; align-items: center;">
             <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="margin-right: 8px;">
             <div style="flex: 1;">
@@ -704,6 +789,7 @@
                   ${variable.name}
                 </span>
                 ${warningIcon}
+                ${changeIndicator}
               </div>
               <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
                 <span style="background: ${typeColor}; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500;">
@@ -854,6 +940,16 @@
           <p style="color: #666; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
             This will sync ${selectedVariables.length} variables from Figma to your Fragmento project.
           </p>
+          
+          <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
+            <div style="color: #0369a1; font-size: 12px; font-weight: 500; margin-bottom: 4px;">ℹ️ Token Name Conversion</div>
+            <div style="color: #0369a1; font-size: 11px; line-height: 1.4;">
+              Figma variable names will be automatically converted to valid token names:<br>
+              • Forward slashes (/) → dots (.)<br>
+              • Spaces → underscores (_)<br>
+              • Example: "surface/surface-primary" → "surface.surface-primary"
+            </div>
+          </div>
           
           <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
             <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>

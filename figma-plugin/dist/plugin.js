@@ -1,5 +1,25 @@
 "use strict";
 (() => {
+  var __defProp = Object.defineProperty;
+  var __defProps = Object.defineProperties;
+  var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
+  var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+
   // src/plugin/plugin.ts
   figma.showUI(__html__, {
     width: 400,
@@ -9,6 +29,7 @@
   var AUTH_TOKEN_KEY = "fragmento_auth_token";
   var SELECTED_ORG_KEY = "fragmento_selected_org";
   var SELECTED_PROJECT_KEY = "fragmento_selected_project";
+  var LAST_PUSHED_STATE_KEY = "fragmento_last_pushed_state";
   async function init() {
     console.log("Fragmento plugin initializing...");
     const initTimeout = setTimeout(() => {
@@ -478,6 +499,140 @@
       });
     }
   }
+  function detectChanges(currentCollections, lastPushedState) {
+    var _a;
+    const changes = {
+      added: [],
+      modified: [],
+      deleted: [],
+      collections: {
+        added: [],
+        deleted: []
+      },
+      summary: {
+        totalAdded: 0,
+        totalModified: 0,
+        totalDeleted: 0,
+        collectionsAdded: 0,
+        collectionsDeleted: 0
+      }
+    };
+    const currentVariableMap = /* @__PURE__ */ new Map();
+    const lastVariableMap = /* @__PURE__ */ new Map();
+    currentCollections.forEach((collection) => {
+      collection.variables.forEach((variable) => {
+        const key = `${collection.id}:${variable.id}`;
+        currentVariableMap.set(key, __spreadProps(__spreadValues({}, variable), {
+          collectionName: collection.name,
+          collectionId: collection.id
+        }));
+      });
+    });
+    if (lastPushedState.collections) {
+      lastPushedState.collections.forEach((collection) => {
+        collection.variables.forEach((variable) => {
+          const key = `${collection.id}:${variable.id}`;
+          lastVariableMap.set(key, __spreadProps(__spreadValues({}, variable), {
+            collectionName: collection.name,
+            collectionId: collection.id
+          }));
+        });
+      });
+    }
+    currentVariableMap.forEach((currentVar, key) => {
+      const lastVar = lastVariableMap.get(key);
+      if (!lastVar) {
+        changes.added.push(__spreadProps(__spreadValues({}, currentVar), {
+          changeType: "added"
+        }));
+        changes.summary.totalAdded++;
+      } else if (currentVar.value !== lastVar.value || currentVar.tokenType !== lastVar.tokenType || currentVar.name !== lastVar.name) {
+        changes.modified.push(__spreadProps(__spreadValues({}, currentVar), {
+          changeType: "modified",
+          oldValue: lastVar.value,
+          oldType: lastVar.tokenType,
+          oldName: lastVar.name
+        }));
+        changes.summary.totalModified++;
+      }
+    });
+    lastVariableMap.forEach((lastVar, key) => {
+      if (!currentVariableMap.has(key)) {
+        changes.deleted.push(__spreadProps(__spreadValues({}, lastVar), {
+          changeType: "deleted"
+        }));
+        changes.summary.totalDeleted++;
+      }
+    });
+    const currentCollectionNames = new Set(currentCollections.map((c) => c.name));
+    const lastCollectionNames = new Set(((_a = lastPushedState.collections) == null ? void 0 : _a.map((c) => c.name)) || []);
+    currentCollectionNames.forEach((name) => {
+      if (!lastCollectionNames.has(name)) {
+        changes.collections.added.push(name);
+        changes.summary.collectionsAdded++;
+      }
+    });
+    lastCollectionNames.forEach((name) => {
+      if (!currentCollectionNames.has(name)) {
+        changes.collections.deleted.push(String(name));
+        changes.summary.collectionsDeleted++;
+      }
+    });
+    return changes;
+  }
+  async function saveCurrentStateAsLastPushed(tokenSets) {
+    try {
+      const collections = figma.variables.getLocalVariableCollections();
+      const currentState = {
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        collections: collections.map((collection) => ({
+          id: collection.id,
+          name: collection.name,
+          variables: collection.variableIds.map((id) => {
+            const variable = figma.variables.getVariableById(id);
+            if (!variable)
+              return null;
+            const modes = Object.keys(variable.valuesByMode);
+            let value = "";
+            let tokenType = "unknown";
+            if (modes.length > 0) {
+              const defaultValue = variable.valuesByMode[modes[0]];
+              if (typeof defaultValue === "object" && "type" in defaultValue && defaultValue.type === "VARIABLE_ALIAS") {
+                const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+                value = aliasVariable ? `{${aliasVariable.name}}` : "unknown";
+                tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
+              } else {
+                const typeMapping = mapFigmaTypeToFragmento(variable.resolvedType, variable.name, defaultValue);
+                tokenType = typeMapping.type;
+                if (variable.resolvedType === "COLOR" && typeof defaultValue === "object" && "r" in defaultValue) {
+                  const r = Math.round(defaultValue.r * 255);
+                  const g = Math.round(defaultValue.g * 255);
+                  const b = Math.round(defaultValue.b * 255);
+                  value = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+                } else if (variable.resolvedType === "FLOAT") {
+                  const floatValue = Number(defaultValue);
+                  value = tokenType === "spacing" ? `${floatValue}px` : String(floatValue);
+                } else {
+                  value = String(defaultValue);
+                }
+              }
+            }
+            return {
+              id: variable.id,
+              name: variable.name,
+              resolvedType: variable.resolvedType,
+              tokenType,
+              value
+            };
+          }).filter(Boolean)
+        }))
+      };
+      await figma.clientStorage.setAsync(LAST_PUSHED_STATE_KEY, JSON.stringify(currentState));
+      console.log("Saved current state as last pushed state");
+    } catch (error) {
+      console.error("Error saving current state:", error);
+    }
+  }
   function mapFigmaTypeToFragmento(figmaType, variableName, value) {
     switch (figmaType) {
       case "COLOR":
@@ -518,6 +673,8 @@
       console.log("Scanning Figma variables...");
       const collections = figma.variables.getLocalVariableCollections();
       console.log("Found collections:", collections.length);
+      const lastPushedStateStr = await figma.clientStorage.getAsync(LAST_PUSHED_STATE_KEY);
+      const lastPushedState = lastPushedStateStr ? JSON.parse(lastPushedStateStr) : null;
       const processedCollections = [];
       let totalVariableCount = 0;
       for (const collection of collections) {
@@ -585,12 +742,19 @@
           variables
         });
       }
-      console.log("Processed variables:", totalVariableCount);
+      console.log(`Processed ${totalVariableCount} variables across ${processedCollections.length} collections`);
+      let changeAnalysis = null;
+      if (lastPushedState) {
+        changeAnalysis = detectChanges(processedCollections, lastPushedState);
+        console.log("Change analysis:", changeAnalysis);
+      }
       figma.ui.postMessage({
         type: "variables-scanned",
         payload: {
           collections: processedCollections,
-          totalCount: totalVariableCount
+          totalCount: totalVariableCount,
+          changeAnalysis,
+          isFirstScan: !lastPushedState
         }
       });
     } catch (error) {
@@ -767,6 +931,7 @@
             message: "Finalizing changes..."
           }
         });
+        await saveCurrentStateAsLastPushed(tokenSets);
         figma.ui.postMessage({
           type: "push-success",
           payload: {

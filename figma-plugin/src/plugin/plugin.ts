@@ -13,6 +13,7 @@ figma.showUI(__html__, {
 const AUTH_TOKEN_KEY = 'fragmento_auth_token';
 const SELECTED_ORG_KEY = 'fragmento_selected_org';
 const SELECTED_PROJECT_KEY = 'fragmento_selected_project';
+const LAST_PUSHED_STATE_KEY = 'fragmento_last_pushed_state';
 
 // Initialize plugin
 async function init() {
@@ -611,6 +612,177 @@ async function handleLoadProject(organizationId: string, projectId: string) {
   }
 }
 
+// Function to detect changes between current and last pushed state
+function detectChanges(currentCollections: any[], lastPushedState: any) {
+  const changes = {
+    added: [] as any[],
+    modified: [] as any[],
+    deleted: [] as any[],
+    collections: {
+      added: [] as string[],
+      deleted: [] as string[]
+    },
+    summary: {
+      totalAdded: 0,
+      totalModified: 0,
+      totalDeleted: 0,
+      collectionsAdded: 0,
+      collectionsDeleted: 0
+    }
+  };
+
+  // Create lookup maps for efficient comparison
+  const currentVariableMap = new Map();
+  const lastVariableMap = new Map();
+  
+  // Build current state map
+  currentCollections.forEach(collection => {
+    collection.variables.forEach((variable: any) => {
+      const key = `${collection.id}:${variable.id}`;
+      currentVariableMap.set(key, {
+        ...variable,
+        collectionName: collection.name,
+        collectionId: collection.id
+      });
+    });
+  });
+  
+  // Build last state map
+  if (lastPushedState.collections) {
+    lastPushedState.collections.forEach((collection: any) => {
+      collection.variables.forEach((variable: any) => {
+        const key = `${collection.id}:${variable.id}`;
+        lastVariableMap.set(key, {
+          ...variable,
+          collectionName: collection.name,
+          collectionId: collection.id
+        });
+      });
+    });
+  }
+  
+  // Find added and modified variables
+  currentVariableMap.forEach((currentVar, key) => {
+    const lastVar = lastVariableMap.get(key);
+    
+    if (!lastVar) {
+      // Variable was added
+      changes.added.push({
+        ...currentVar,
+        changeType: 'added'
+      });
+      changes.summary.totalAdded++;
+    } else if (
+      currentVar.value !== lastVar.value ||
+      currentVar.tokenType !== lastVar.tokenType ||
+      currentVar.name !== lastVar.name
+    ) {
+      // Variable was modified
+      changes.modified.push({
+        ...currentVar,
+        changeType: 'modified',
+        oldValue: lastVar.value,
+        oldType: lastVar.tokenType,
+        oldName: lastVar.name
+      });
+      changes.summary.totalModified++;
+    }
+  });
+  
+  // Find deleted variables
+  lastVariableMap.forEach((lastVar, key) => {
+    if (!currentVariableMap.has(key)) {
+      changes.deleted.push({
+        ...lastVar,
+        changeType: 'deleted'
+      });
+      changes.summary.totalDeleted++;
+    }
+  });
+  
+  // Check for collection changes
+  const currentCollectionNames = new Set(currentCollections.map(c => c.name));
+  const lastCollectionNames = new Set(lastPushedState.collections?.map((c: any) => c.name) || []);
+  
+  currentCollectionNames.forEach(name => {
+    if (!lastCollectionNames.has(name)) {
+      changes.collections.added.push(name);
+      changes.summary.collectionsAdded++;
+    }
+  });
+  
+  lastCollectionNames.forEach(name => {
+    if (!currentCollectionNames.has(name)) {
+      changes.collections.deleted.push(String(name));
+      changes.summary.collectionsDeleted++;
+    }
+  });
+  
+  return changes;
+}
+
+// Function to save current state as last pushed state
+async function saveCurrentStateAsLastPushed(tokenSets: any[]) {
+  try {
+    // Get current collections and variables
+    const collections = figma.variables.getLocalVariableCollections();
+    const currentState = {
+      timestamp: new Date().toISOString(),
+      collections: collections.map(collection => ({
+        id: collection.id,
+        name: collection.name,
+        variables: collection.variableIds.map(id => {
+          const variable = figma.variables.getVariableById(id);
+          if (!variable) return null;
+          
+          // Get the default value
+          const modes = Object.keys(variable.valuesByMode);
+          let value = '';
+          let tokenType = 'unknown';
+          
+          if (modes.length > 0) {
+            const defaultValue = variable.valuesByMode[modes[0]];
+            
+            if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
+              const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+              value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
+              tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
+            } else {
+              const typeMapping = mapFigmaTypeToFragmento(variable.resolvedType, variable.name, defaultValue);
+              tokenType = typeMapping.type;
+              
+              if (variable.resolvedType === 'COLOR' && typeof defaultValue === 'object' && 'r' in defaultValue) {
+                const r = Math.round(defaultValue.r * 255);
+                const g = Math.round(defaultValue.g * 255);
+                const b = Math.round(defaultValue.b * 255);
+                value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+              } else if (variable.resolvedType === 'FLOAT') {
+                const floatValue = Number(defaultValue);
+                value = tokenType === 'spacing' ? `${floatValue}px` : String(floatValue);
+              } else {
+                value = String(defaultValue);
+              }
+            }
+          }
+          
+          return {
+            id: variable.id,
+            name: variable.name,
+            resolvedType: variable.resolvedType,
+            tokenType,
+            value
+          };
+        }).filter(Boolean)
+      }))
+    };
+    
+    await figma.clientStorage.setAsync(LAST_PUSHED_STATE_KEY, JSON.stringify(currentState));
+    console.log('Saved current state as last pushed state');
+  } catch (error) {
+    console.error('Error saving current state:', error);
+  }
+}
+
 // Type mapping function for Figma to Fragmento token types
 function mapFigmaTypeToFragmento(figmaType: string, variableName?: string, value?: any): { type: string, hasWarning: boolean, warningMessage: string } {
   switch (figmaType) {
@@ -669,6 +841,10 @@ async function handleScanVariables() {
     // Get all local variable collections
     const collections = figma.variables.getLocalVariableCollections();
     console.log('Found collections:', collections.length);
+    
+    // Get last pushed state for comparison
+    const lastPushedStateStr = await figma.clientStorage.getAsync(LAST_PUSHED_STATE_KEY);
+    const lastPushedState = lastPushedStateStr ? JSON.parse(lastPushedStateStr) : null;
     
     const processedCollections = [];
     let totalVariableCount = 0;
@@ -751,13 +927,23 @@ async function handleScanVariables() {
       });
     }
     
-    console.log('Processed variables:', totalVariableCount);
+    console.log(`Processed ${totalVariableCount} variables across ${processedCollections.length} collections`);
     
+    // Detect changes if we have a previous state
+    let changeAnalysis = null;
+    if (lastPushedState) {
+      changeAnalysis = detectChanges(processedCollections, lastPushedState);
+      console.log('Change analysis:', changeAnalysis);
+    }
+    
+    // Send variables to UI
     figma.ui.postMessage({
       type: 'variables-scanned',
       payload: {
         collections: processedCollections,
-        totalCount: totalVariableCount
+        totalCount: totalVariableCount,
+        changeAnalysis: changeAnalysis,
+        isFirstScan: !lastPushedState
       }
     });
     
@@ -983,6 +1169,9 @@ async function handlePushSelectedVariables(selectedVariables: Array<{collectionI
           message: 'Finalizing changes...'
         }
       });
+      
+      // Save current state as last pushed state
+      await saveCurrentStateAsLastPushed(tokenSets);
       
       // Send success message with detailed results
       figma.ui.postMessage({
