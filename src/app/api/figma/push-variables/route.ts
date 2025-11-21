@@ -181,6 +181,7 @@ export async function POST(request: NextRequest) {
               results.changes.push({
                 type: 'token_created',
                 token_name: token.name,
+                original_name: token.originalName || token.name,
                 set_name: tokenSet.name,
                 value: token.value,
                 token_type: token.type
@@ -261,6 +262,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Function to sanitize token names
+function sanitizeTokenName(name: string): string {
+  return name
+    // Replace forward slashes with dots
+    .replace(/\//g, '.')
+    // Replace spaces with underscores
+    .replace(/\s+/g, '_')
+    // Replace multiple consecutive dots/underscores with single ones
+    .replace(/[._]{2,}/g, '_')
+    // Remove any characters that aren't letters, numbers, dots, underscores, or hyphens
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    // Remove leading/trailing dots, underscores, or hyphens
+    .replace(/^[._-]+|[._-]+$/g, '')
+    // Ensure it doesn't start with a number
+    .replace(/^(\d)/, '_$1');
+}
+
 // Validation function for tokens
 function validateToken(token: any): string | null {
   if (!token.name || typeof token.name !== 'string') {
@@ -275,10 +293,20 @@ function validateToken(token: any): string | null {
     return 'Token value is required';
   }
 
-  // Validate token name format
-  if (!/^[a-zA-Z0-9._-]+$/.test(token.name)) {
-    return 'Token name contains invalid characters. Use only letters, numbers, dots, underscores, and hyphens';
+  // Auto-convert token name to valid format
+  const originalName = token.name;
+  const sanitizedName = sanitizeTokenName(token.name);
+  
+  // Check if name is empty after sanitization
+  if (!sanitizedName || sanitizedName.length === 0) {
+    return `Token name "${originalName}" could not be converted to a valid format`;
   }
+  
+  // Store original name if it was changed
+  if (originalName !== sanitizedName) {
+    token.originalName = originalName;
+  }
+  token.name = sanitizedName;
 
   // Type-specific validation
   switch (token.type) {
