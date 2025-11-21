@@ -30,7 +30,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token type' }, { status: 401 });
     }
 
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     
     // First verify the user has access to this organization
     const { data: orgAccess, error: orgError } = await supabase
