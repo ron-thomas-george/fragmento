@@ -81,12 +81,24 @@ export default function FigmaAuthorizePage() {
 
       const { token, expiresIn } = await response.json();
 
-      // Redirect back to Figma with token
-      const figmaUrl = `figma://auth-callback?token=${token}&userId=${user.id}&expiresIn=${expiresIn}&state=${state}`;
-      window.location.href = figmaUrl;
+      // Store token for plugin polling
+      await fetch('/api/figma/poll-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          state: state,
+          token: token,
+          userId: user.id,
+          expiresIn: expiresIn
+        }),
+      });
 
-      // Show success message
       setError(null);
+      
+      // Show success message with instructions
+      alert('Authorization successful! Please return to Figma. The plugin should automatically detect the authorization.');
       
     } catch (err) {
       setError('Authorization failed. Please try again.');

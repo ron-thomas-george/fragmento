@@ -74,6 +74,18 @@ class FragmentoPlugin {
 
       case 'projects-loaded':
         this.state.projects = message.payload.projects;
+        this.state.isLoadingProjects = false;
+        this.render();
+        break;
+
+      case 'user-info-loaded':
+        this.state.userInfo = message.payload.userInfo;
+        this.render();
+        break;
+
+      case 'auth-initiated':
+        this.state.error = null;
+        this.state.isLoading = true;
         this.render();
         break;
 
@@ -133,7 +145,8 @@ class FragmentoPlugin {
     return `
       <div class="loading-container">
         <div class="loading-spinner"></div>
-        <p>Loading...</p>
+        <p>Waiting for authorization...</p>
+        <p class="loading-subtext">Complete the authorization in your browser, then return to Figma.</p>
       </div>
     `;
   }
@@ -168,6 +181,10 @@ class FragmentoPlugin {
               <path d="M8 1L3 5v8h2V9h6v4h2V5l-5-4z" fill="currentColor"/>
             </svg>
             Authenticate with Fragmento
+          </button>
+          
+          <button class="secondary-button" id="test-token-btn" style="margin-top: 8px;">
+            Test Stored Token
           </button>
 
           <div class="auth-description">
@@ -483,6 +500,12 @@ class FragmentoPlugin {
     const authBtn = document.getElementById('auth-btn');
     if (authBtn) {
       authBtn.onclick = () => this.postMessage({ type: 'authenticate' });
+    }
+
+    // Test token button
+    const testTokenBtn = document.getElementById('test-token-btn');
+    if (testTokenBtn) {
+      testTokenBtn.onclick = () => this.postMessage({ type: 'get-auth-status' });
     }
 
     // Retry button
