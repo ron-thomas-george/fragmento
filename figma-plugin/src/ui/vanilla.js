@@ -197,12 +197,12 @@ class FragmentoPlugin {
         <div class="auth-header">
           <div class="logo">
             <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="var(--figma-color-bg-brand)"/>
+              <rect width="32" height="32" rx="8" fill="#2563eb"/>
               <path d="M8 12h16v2H8v-2zm0 4h12v2H8v-2zm0 4h8v2H8v-2z" fill="white"/>
             </svg>
           </div>
-          <h1>Fragmento</h1>
-          <p>Design Token Management</p>
+          <h1>Fragmento <small style="color: #666; font-size: 10px;">v2.1</small></h1>
+          <p>Connect to your Fragmento account to sync design tokens</p>
         </div>
 
         <div class="auth-content">
@@ -229,6 +229,14 @@ class FragmentoPlugin {
           
           <button class="secondary-button" id="debug-btn" style="margin-top: 8px;">
             Debug Info
+          </button>
+          
+          <button class="secondary-button" id="manual-poll-btn" style="margin-top: 8px;">
+            Manual Poll (State: 7728888738069)
+          </button>
+          
+          <button class="secondary-button" id="direct-auth-btn" style="margin-top: 8px;">
+            Direct Auth Test
           </button>
 
           <div class="auth-description">
@@ -565,6 +573,32 @@ class FragmentoPlugin {
         console.log('Projects:', this.state.projects);
         console.log('========================');
         alert('Debug info logged to console. Check Developer Console.');
+      };
+    }
+
+    // Manual poll button
+    const manualPollBtn = document.getElementById('manual-poll-btn');
+    if (manualPollBtn) {
+      manualPollBtn.onclick = () => {
+        console.log('Manual polling test started...');
+        this.handleTokenPolling('7728888738069', 1);
+      };
+    }
+
+    // Direct auth test button
+    const directAuthBtn = document.getElementById('direct-auth-btn');
+    if (directAuthBtn) {
+      directAuthBtn.onclick = () => {
+        console.log('Direct auth test - simulating successful authentication...');
+        // Simulate receiving a token directly
+        this.postMessage({
+          type: 'token-found',
+          payload: {
+            token: 'test-token-12345',
+            userId: 'test-user-id',
+            expiresIn: 2592000
+          }
+        });
       };
     }
 

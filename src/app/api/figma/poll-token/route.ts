@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// CORS headers for Figma plugin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS(request: NextRequest) {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
+
 // In-memory storage for tokens (in production, use Redis or database)
 const tokenStorage = new Map<string, {
   token: string;
@@ -40,7 +51,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('Token stored successfully. Current storage size:', tokenStorage.size);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Token storage error:', error);
@@ -84,7 +95,7 @@ export async function GET(request: NextRequest) {
       token: tokenData.token,
       userId: tokenData.userId,
       expiresIn: tokenData.expiresIn
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Token retrieval error:', error);

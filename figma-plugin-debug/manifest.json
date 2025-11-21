@@ -1,6 +1,6 @@
 {
-  "name": "Fragmento",
-  "id": "fragmento-design-tokens-v2",
+  "name": "Fragmento Debug",
+  "id": "fragmento-debug-tokens",
   "api": "1.0.0",
   "main": "dist/plugin.js",
   "ui": "dist/index.html",

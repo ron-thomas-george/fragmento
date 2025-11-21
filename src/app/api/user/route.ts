@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
 
+// CORS headers for Figma plugin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS(request: NextRequest) {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -53,7 +64,7 @@ export async function GET(request: NextRequest) {
       full_name: user.user.user_metadata?.full_name || null,
       avatar_url: user.user.user_metadata?.avatar_url || null,
       created_at: user.user.created_at,
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('User API error:', error);
