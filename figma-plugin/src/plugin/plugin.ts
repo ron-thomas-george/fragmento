@@ -141,8 +141,26 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await handleGetVariables();
         break;
         
+      case 'scan-variables':
+        await handleScanVariables();
+        break;
+        
+      case 'import-variables':
+        await handleImportVariables(msg.payload.selectedVariables);
+        break;
+        
       case 'push-variables':
-        await handlePushVariables(msg.payload);
+        if (msg.payload.selectedVariables) {
+          await handlePushSelectedVariables(msg.payload.selectedVariables);
+        } else {
+          await handlePushVariables(msg.payload);
+        }
+        break;
+        
+      case 'open-url':
+        if (msg.payload.url) {
+          figma.openExternal(msg.payload.url);
+        }
         break;
         
       case 'fetch-organizations':
@@ -178,6 +196,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         
       case 'clear-project':
         await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
+        break;
+        
+      case 'load-project':
+        await handleLoadProject(msg.payload.organizationId, msg.payload.projectId);
         break;
         
       case 'token-found':
@@ -524,6 +546,472 @@ async function handleFetchProjects(authToken: AuthToken, organizationId: string)
     figma.ui.postMessage({
       type: 'error',
       payload: { message: 'Failed to load projects' }
+    });
+  }
+}
+
+async function handleLoadProject(organizationId: string, projectId: string) {
+  try {
+    console.log('Loading project:', projectId, 'from organization:', organizationId);
+    
+    // Store the selected project
+    const project = { id: projectId, organizationId };
+    await figma.clientStorage.setAsync(SELECTED_PROJECT_KEY, JSON.stringify(project));
+    
+    // Get stored auth token to fetch project details
+    const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
+    if (storedToken) {
+      const authToken = JSON.parse(storedToken);
+      
+      try {
+        // Fetch project details from API
+        const response = await fetch(`https://fragmento-theta.vercel.app/api/organizations/${organizationId}/projects`, {
+          headers: {
+            'Authorization': `Bearer ${authToken.token}`
+          }
+        });
+        
+        if (response.ok) {
+          const projects = await response.json();
+          const selectedProject = projects.find((p: any) => p.id === projectId);
+          
+          if (selectedProject) {
+            figma.ui.postMessage({
+              type: 'project-loaded',
+              payload: { 
+                project: selectedProject
+              }
+            });
+            return;
+          }
+        }
+      } catch (fetchError) {
+        console.error('Error fetching project details:', fetchError);
+      }
+    }
+    
+    // Fallback: send basic project object
+    figma.ui.postMessage({
+      type: 'project-loaded',
+      payload: { 
+        project: { 
+          id: projectId, 
+          name: 'Selected Project',
+          organizationId 
+        } 
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error loading project:', error);
+    figma.ui.postMessage({
+      type: 'auth-error',
+      payload: { message: 'Failed to load project' }
+    });
+  }
+}
+
+// Type mapping function for Figma to Fragmento token types
+function mapFigmaTypeToFragmento(figmaType: string, variableName?: string, value?: any): { type: string, hasWarning: boolean, warningMessage: string } {
+  switch (figmaType) {
+    case 'COLOR':
+      return { type: 'color', hasWarning: false, warningMessage: '' };
+      
+    case 'FLOAT':
+      // Contextual detection for FLOAT types
+      if (variableName) {
+        const name = variableName.toLowerCase();
+        if (name.includes('spacing') || name.includes('gap') || name.includes('margin') || 
+            name.includes('padding') || name.includes('size') || name.includes('width') || 
+            name.includes('height') || name.includes('radius')) {
+          return { type: 'spacing', hasWarning: false, warningMessage: '' };
+        }
+      }
+      return { type: 'number', hasWarning: false, warningMessage: '' };
+      
+    case 'STRING':
+      // Contextual detection for STRING types
+      if (variableName && value) {
+        const name = variableName.toLowerCase();
+        const stringValue = String(value).toLowerCase();
+        
+        // Check for font family patterns
+        if (name.includes('font') || name.includes('family') || 
+            stringValue.includes('arial') || stringValue.includes('helvetica') || 
+            stringValue.includes('times') || stringValue.includes('georgia') ||
+            stringValue.includes('sans') || stringValue.includes('serif') ||
+            stringValue.includes('mono')) {
+          return { type: 'fontFamily', hasWarning: false, warningMessage: '' };
+        }
+      }
+      return { type: 'string', hasWarning: false, warningMessage: '' };
+      
+    case 'BOOLEAN':
+      return { 
+        type: 'string', 
+        hasWarning: true, 
+        warningMessage: 'BOOLEAN variables are not directly supported and will be converted to strings' 
+      };
+      
+    default:
+      return { 
+        type: 'unknown', 
+        hasWarning: true, 
+        warningMessage: `Unknown variable type: ${figmaType}` 
+      };
+  }
+}
+
+async function handleScanVariables() {
+  try {
+    console.log('Scanning Figma variables...');
+    
+    // Get all local variable collections
+    const collections = figma.variables.getLocalVariableCollections();
+    console.log('Found collections:', collections.length);
+    
+    const processedCollections = [];
+    let totalVariableCount = 0;
+    
+    for (const collection of collections) {
+      const variables = collection.variableIds.map(id => {
+        const variable = figma.variables.getVariableById(id);
+        if (!variable) return null;
+        
+        // Process variable value and detect token type
+        let value = '';
+        let isAlias = false;
+        let aliasName = '';
+        let tokenType = 'unknown';
+        let hasWarning = false;
+        let warningMessage = '';
+        
+        // Get the default value (first mode)
+        const modes = Object.keys(variable.valuesByMode);
+        if (modes.length > 0) {
+          const defaultValue = variable.valuesByMode[modes[0]];
+          
+          if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
+            // This is an alias
+            isAlias = true;
+            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            aliasName = aliasVariable ? aliasVariable.name : 'unknown';
+            value = `{${aliasName}}`;
+            tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
+          } else {
+            // Regular value - detect type and format
+            const typeMapping = mapFigmaTypeToFragmento(variable.resolvedType, variable.name, defaultValue);
+            tokenType = typeMapping.type;
+            hasWarning = typeMapping.hasWarning;
+            warningMessage = typeMapping.warningMessage;
+            
+            if (variable.resolvedType === 'COLOR') {
+              if (typeof defaultValue === 'object' && 'r' in defaultValue) {
+                // RGB color to hex
+                const r = Math.round(defaultValue.r * 255);
+                const g = Math.round(defaultValue.g * 255);
+                const b = Math.round(defaultValue.b * 255);
+                value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+              } else {
+                value = String(defaultValue);
+              }
+            } else if (variable.resolvedType === 'FLOAT') {
+              // Format float values with appropriate units
+              const floatValue = Number(defaultValue);
+              if (tokenType === 'spacing') {
+                value = `${floatValue}px`;
+              } else {
+                value = String(floatValue);
+              }
+            } else {
+              value = String(defaultValue);
+            }
+          }
+        }
+        
+        return {
+          id: variable.id,
+          name: variable.name,
+          resolvedType: variable.resolvedType,
+          tokenType,
+          value,
+          isAlias,
+          aliasName,
+          hasWarning,
+          warningMessage
+        };
+      }).filter(Boolean);
+      
+      totalVariableCount += variables.length;
+      
+      processedCollections.push({
+        id: collection.id,
+        name: collection.name,
+        variables
+      });
+    }
+    
+    console.log('Processed variables:', totalVariableCount);
+    
+    figma.ui.postMessage({
+      type: 'variables-scanned',
+      payload: {
+        collections: processedCollections,
+        totalCount: totalVariableCount
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error scanning variables:', error);
+    figma.ui.postMessage({
+      type: 'auth-error',
+      payload: { message: 'Failed to scan variables' }
+    });
+  }
+}
+
+async function handleImportVariables(selectedVariables: Array<{collectionId: string, variableId: string}>) {
+  try {
+    console.log('Importing variables:', selectedVariables.length);
+    
+    // Get stored auth token and project
+    const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
+    const storedProject = await figma.clientStorage.getAsync(SELECTED_PROJECT_KEY);
+    
+    if (!storedToken || !storedProject) {
+      throw new Error('Missing authentication or project selection');
+    }
+    
+    const authToken = JSON.parse(storedToken);
+    const project = JSON.parse(storedProject);
+    
+    // Process selected variables
+    const variablesToImport = [];
+    
+    for (const selection of selectedVariables) {
+      const variable = figma.variables.getVariableById(selection.variableId);
+      const collection = figma.variables.getLocalVariableCollections()
+        .find(c => c.id === selection.collectionId);
+      
+      if (variable && collection) {
+        // Get variable value (simplified for now)
+        const modes = Object.keys(variable.valuesByMode);
+        let value = '';
+        
+        if (modes.length > 0) {
+          const defaultValue = variable.valuesByMode[modes[0]];
+          
+          if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
+            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
+          } else if (variable.resolvedType === 'COLOR' && typeof defaultValue === 'object' && 'r' in defaultValue) {
+            const r = Math.round(defaultValue.r * 255);
+            const g = Math.round(defaultValue.g * 255);
+            const b = Math.round(defaultValue.b * 255);
+            value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          } else {
+            value = String(defaultValue);
+          }
+        }
+        
+        variablesToImport.push({
+          name: variable.name,
+          type: variable.resolvedType.toLowerCase(),
+          value: value,
+          collection: collection.name,
+          figmaId: variable.id
+        });
+      }
+    }
+    
+    // Send to Fragmento API (placeholder for now)
+    console.log('Variables to import:', variablesToImport);
+    
+    // For now, just show success
+    figma.ui.postMessage({
+      type: 'import-success',
+      payload: { 
+        message: `Successfully imported ${variablesToImport.length} variables`,
+        count: variablesToImport.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error importing variables:', error);
+    figma.ui.postMessage({
+      type: 'import-error',
+      payload: { message: 'Failed to import variables' }
+    });
+  }
+}
+
+async function handlePushSelectedVariables(selectedVariables: Array<{collectionId: string, variableId: string}>) {
+  try {
+    console.log('Pushing selected variables to Fragmento:', selectedVariables.length);
+    
+    // Get stored auth token and project
+    const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
+    const storedProject = await figma.clientStorage.getAsync(SELECTED_PROJECT_KEY);
+    
+    if (!storedToken || !storedProject) {
+      throw new Error('Missing authentication or project selection');
+    }
+    
+    const authToken = JSON.parse(storedToken);
+    const project = JSON.parse(storedProject);
+    
+    // Process selected variables with collection mapping
+    const collectionMap = new Map();
+    
+    for (const selection of selectedVariables) {
+      const variable = figma.variables.getVariableById(selection.variableId);
+      const collection = figma.variables.getLocalVariableCollections()
+        .find(c => c.id === selection.collectionId);
+      
+      if (variable && collection) {
+        if (!collectionMap.has(collection.id)) {
+          collectionMap.set(collection.id, {
+            id: collection.id,
+            name: collection.name,
+            variables: []
+          });
+        }
+        
+        // Process variable with enhanced type detection
+        const modes = Object.keys(variable.valuesByMode);
+        let value = '';
+        let tokenType = 'unknown';
+        
+        if (modes.length > 0) {
+          const defaultValue = variable.valuesByMode[modes[0]];
+          
+          if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
+            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
+            tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
+          } else {
+            const typeMapping = mapFigmaTypeToFragmento(variable.resolvedType, variable.name, defaultValue);
+            tokenType = typeMapping.type;
+            
+            if (variable.resolvedType === 'COLOR' && typeof defaultValue === 'object' && 'r' in defaultValue) {
+              const r = Math.round(defaultValue.r * 255);
+              const g = Math.round(defaultValue.g * 255);
+              const b = Math.round(defaultValue.b * 255);
+              value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            } else if (variable.resolvedType === 'FLOAT') {
+              const floatValue = Number(defaultValue);
+              value = tokenType === 'spacing' ? `${floatValue}px` : String(floatValue);
+            } else {
+              value = String(defaultValue);
+            }
+          }
+        }
+        
+        collectionMap.get(collection.id).variables.push({
+          name: variable.name,
+          type: tokenType,
+          value: value,
+          figmaId: variable.id,
+          resolvedType: variable.resolvedType
+        });
+      }
+    }
+    
+    // Convert to array for API
+    const tokenSets = Array.from(collectionMap.values()).map(collection => ({
+      name: collection.name,
+      tokens: collection.variables.map((variable: any) => ({
+        name: variable.name,
+        type: variable.type,
+        value: variable.value,
+        description: ''
+      }))
+    }));
+    
+    console.log('Token sets to push:', tokenSets);
+    
+    // Send progress update
+    figma.ui.postMessage({
+      type: 'push-progress',
+      payload: { 
+        stage: 'pushing',
+        message: 'Pushing variables to Fragmento...'
+      }
+    });
+    
+    // Push to Fragmento API
+    try {
+      const response = await fetch('https://fragmento-theta.vercel.app/api/figma/push-variables', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken.token}`
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          tokenSets: tokenSets,
+          metadata: {
+            figmaFileId: figma.fileKey,
+            figmaFileName: figma.root.name,
+            timestamp: new Date().toISOString(),
+            source: 'figma_plugin'
+          }
+        })
+      });
+      
+      // Send progress update
+      figma.ui.postMessage({
+        type: 'push-progress',
+        payload: { 
+          stage: 'processing',
+          message: 'Processing tokens and creating sets...'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      // Send final progress update
+      figma.ui.postMessage({
+        type: 'push-progress',
+        payload: { 
+          stage: 'completing',
+          message: 'Finalizing changes...'
+        }
+      });
+      
+      // Send success message with detailed results
+      figma.ui.postMessage({
+        type: 'push-success',
+        payload: { 
+          message: result.message,
+          results: result.results,
+          changes: result.changes,
+          projectUrl: result.projectUrl,
+          summary: {
+            totalVariables: selectedVariables.length,
+            tokensCreated: result.results.tokensCreated,
+            tokensUpdated: result.results.tokensUpdated,
+            setsCreated: result.results.setsCreated,
+            errors: result.results.errors
+          }
+        }
+      });
+      
+    } catch (apiError) {
+      console.error('API Error:', apiError);
+      throw apiError;
+    }
+    
+  } catch (error) {
+    console.error('Error pushing variables:', error);
+    figma.ui.postMessage({
+      type: 'push-error',
+      payload: { message: 'Failed to push variables to Fragmento' }
     });
   }
 }

@@ -369,6 +369,26 @@
               projectSelect.innerHTML += `<option value="${project.id}">${project.name}</option>`;
             });
           }
+        } else if (msg.type === 'project-loaded') {
+          // Show main interface after project is loaded
+          console.log('Project loaded successfully');
+          showMainInterface(msg.payload.project);
+        } else if (msg.type === 'variables-scanned') {
+          // Show variables after scanning
+          console.log('Variables scanned:', msg.payload);
+          showVariablesInterface(msg.payload.collections, msg.payload.totalCount);
+        } else if (msg.type === 'push-progress') {
+          // Handle push progress updates
+          console.log('Push progress:', msg.payload);
+          updatePushProgress(msg.payload.stage, msg.payload.message);
+        } else if (msg.type === 'push-success') {
+          // Handle successful push
+          console.log('Push successful:', msg.payload);
+          showPushSuccess(msg.payload);
+        } else if (msg.type === 'push-error') {
+          // Handle push error
+          console.log('Push error:', msg.payload);
+          showPushError(msg.payload.message);
         }
       }
     });
@@ -458,12 +478,16 @@
     }
 
     function loadProject() {
+      console.log('Load Project clicked', { selectedOrganization, selectedProject });
+      
       if (selectedOrganization && selectedProject) {
         const output = document.getElementById('output');
         if (output) {
           output.style.display = 'block';
           output.innerHTML = 'Loading project...';
         }
+        
+        console.log('Sending load-project message to plugin');
         
         // Send selection to plugin
         if (parent && parent.postMessage) {
@@ -474,6 +498,623 @@
                 organizationId: selectedOrganization,
                 projectId: selectedProject
               } 
+            } 
+          }, '*');
+          console.log('Message sent successfully');
+        } else {
+          console.error('parent.postMessage not available');
+          if (output) {
+            output.innerHTML = '❌ Error: Cannot communicate with plugin';
+          }
+        }
+      } else {
+        console.error('Missing selection:', { selectedOrganization, selectedProject });
+        const output = document.getElementById('output');
+        if (output) {
+          output.style.display = 'block';
+          output.innerHTML = '❌ Please select both organization and project';
+        }
+      }
+    }
+
+    function showMainInterface(project) {
+      const app = document.getElementById('app');
+      if (!app) return;
+      
+      app.innerHTML = `
+        <div style="padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e5e5;">
+            <div>
+              <h1 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">Fragmento</h1>
+              <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">${project.name}</p>
+            </div>
+            <button onclick="showSettings()" style="background: none; border: none; cursor: pointer; font-size: 16px;">⚙️</button>
+          </div>
+          
+          <div id="mainContent">
+            ${renderEmptyState()}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderEmptyState() {
+      return `
+        <div style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 48px; margin-bottom: 24px; opacity: 0.6;">🎨</div>
+          
+          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">No Variables Imported Yet</h2>
+          
+          <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 0 0 32px 0; max-width: 280px; margin-left: auto; margin-right: auto;">
+            Import your existing Figma variables to sync with Fragmento. Collections will be mapped to token sets automatically.
+          </p>
+          
+          <button onclick="importFigmaVariables()" style="
+            padding: 12px 24px; 
+            background: #18a0fb; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 500; 
+            font-size: 14px;
+            margin-bottom: 24px;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
+            Import Figma Variables
+          </button>
+          
+          <div style="background: #f8f9fa; border-radius: 6px; padding: 16px; text-align: left; max-width: 320px; margin: 0 auto;">
+            <h3 style="color: #1a1a1a; font-size: 13px; font-weight: 500; margin: 0 0 8px 0;">💡 How it works</h3>
+            <ul style="color: #666; font-size: 12px; line-height: 1.4; margin: 0; padding-left: 16px;">
+              <li>Figma Collections → Fragmento Token Sets</li>
+              <li>Variable names and values are preserved</li>
+              <li>Alias relationships are maintained</li>
+              <li>You can select which variables to import</li>
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+
+    function importFigmaVariables() {
+      console.log('Import Figma Variables clicked');
+      const output = document.getElementById('output');
+      
+      // Show loading state
+      const mainContent = document.getElementById('mainContent');
+      if (mainContent) {
+        mainContent.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 32px; margin-bottom: 16px;">⏳</div>
+            <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 500; margin: 0 0 8px 0;">Scanning Variables...</h2>
+            <p style="color: #666; font-size: 13px; margin: 0;">Reading collections and variables from this file</p>
+          </div>
+        `;
+      }
+      
+      // Request variable scan from plugin
+      if (parent && parent.postMessage) {
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'scan-variables'
+          } 
+        }, '*');
+      }
+    }
+
+    function showVariablesInterface(collections, totalCount) {
+      const mainContent = document.getElementById('mainContent');
+      if (!mainContent) return;
+      
+      mainContent.innerHTML = `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">All Variables (${totalCount})</h2>
+            <button onclick="importFigmaVariables()" style="
+              padding: 8px 16px; 
+              background: #f3f4f6; 
+              color: #374151; 
+              border: 1px solid #d1d5db; 
+              border-radius: 6px; 
+              cursor: pointer; 
+              font-size: 12px;
+              font-weight: 500;
+            ">
+              Refresh Variables
+            </button>
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <label style="display: flex; align-items: center; font-size: 13px; color: #374151; cursor: pointer;">
+              <input type="checkbox" id="selectAllVariables" onchange="toggleAllVariables()" checked style="margin-right: 8px;">
+              Select All Variables
+            </label>
+          </div>
+          
+          <div id="collectionsContainer" style="max-height: 400px; overflow-y: auto;">
+            ${collections.map(collection => renderCollection(collection)).join('')}
+          </div>
+          
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e5e5;">
+            <button onclick="confirmImport()" style="
+              width: 100%; 
+              padding: 12px 24px; 
+              background: #18a0fb; 
+              color: white; 
+              border: none; 
+              border-radius: 6px; 
+              cursor: pointer; 
+              font-weight: 500; 
+              font-size: 14px;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
+              Push to Fragmento
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCollection(collection) {
+      return `
+        <div style="margin-bottom: 16px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;">
+          <div style="background: #f8f9fa; padding: 12px 16px; border-bottom: 1px solid #e5e5e5;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;">
+                ${collection.name}
+              </h3>
+              <label style="display: flex; align-items: center; font-size: 12px; color: #6b7280; cursor: pointer;">
+                <input type="checkbox" onchange="toggleCollection('${collection.id}')" checked style="margin-right: 6px;">
+                Select All (${collection.variables.length})
+              </label>
+            </div>
+          </div>
+          
+          <div style="background: white;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: #fafafa;">
+              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #6b7280; border-right: 1px solid #f3f4f6;">Token Name</div>
+              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #6b7280;">Value</div>
+            </div>
+            
+            <div style="max-height: 160px; overflow-y: auto;">
+              ${collection.variables.map((variable, index) => renderVariable(variable, collection.id, index)).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderVariable(variable, collectionId, index) {
+      const bgColor = index % 2 === 0 ? '#ffffff' : '#fafafa';
+      const warningIcon = variable.hasWarning ? '⚠️' : '';
+      const typeColor = getTypeColor(variable.tokenType);
+      
+      return `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: ${bgColor};">
+          <div style="padding: 12px 16px; border-right: 1px solid #f3f4f6; display: flex; align-items: center;">
+            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked style="margin-right: 8px;">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #1a1a1a;">
+                  ${variable.name}
+                </span>
+                ${warningIcon}
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                <span style="background: ${typeColor}; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500;">
+                  ${variable.tokenType}
+                </span>
+                <span style="color: #6b7280; font-size: 10px;">
+                  ${variable.resolvedType}
+                </span>
+              </div>
+              ${variable.hasWarning ? `<div style="color: #f59e0b; font-size: 10px; margin-top: 2px;">${variable.warningMessage}</div>` : ''}
+            </div>
+          </div>
+          <div style="padding: 12px 16px; display: flex; align-items: center;">
+            ${renderVariableValue(variable)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderVariableValue(variable) {
+      if (variable.resolvedType === 'COLOR') {
+        if (variable.isAlias) {
+          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #7c3aed;">{${variable.aliasName}}</span>`;
+        } else {
+          return `
+            <div style="display: flex; align-items: center;">
+              <div style="width: 16px; height: 16px; border-radius: 50%; background: ${variable.value}; border: 1px solid #e5e5e5; margin-right: 8px;"></div>
+              <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #374151;">
+                ${variable.value}
+              </span>
+            </div>
+          `;
+        }
+      } else {
+        if (variable.isAlias) {
+          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #7c3aed;">{${variable.aliasName}}</span>`;
+        } else {
+          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #374151;">${variable.value}</span>`;
+        }
+      }
+    }
+
+    function toggleAllVariables() {
+      const selectAll = document.getElementById('selectAllVariables');
+      const checkboxes = document.querySelectorAll('.variable-checkbox');
+      
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+      });
+    }
+
+    function toggleCollection(collectionId) {
+      const collectionCheckboxes = document.querySelectorAll(`[data-collection="${collectionId}"]`);
+      const collectionToggle = event.target;
+      
+      collectionCheckboxes.forEach(checkbox => {
+        checkbox.checked = collectionToggle.checked;
+      });
+    }
+
+    function getTypeColor(tokenType) {
+      const colors = {
+        'color': '#ef4444',
+        'spacing': '#3b82f6',
+        'number': '#8b5cf6',
+        'string': '#10b981',
+        'fontFamily': '#f59e0b',
+        'unknown': '#6b7280'
+      };
+      return colors[tokenType] || colors.unknown;
+    }
+
+    function confirmImport() {
+      const selectedVariables = [];
+      const checkboxes = document.querySelectorAll('.variable-checkbox:checked');
+      
+      checkboxes.forEach(checkbox => {
+        selectedVariables.push({
+          collectionId: checkbox.dataset.collection,
+          variableId: checkbox.dataset.variable
+        });
+      });
+      
+      console.log('Push to Fragmento:', selectedVariables.length);
+      
+      // Show push confirmation dialog
+      showPushConfirmationDialog(selectedVariables);
+    }
+
+    function showPushConfirmationDialog(selectedVariables) {
+      // Create overlay
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      `;
+      
+      // Count variables by type and collection
+      const stats = analyzeSelectedVariables(selectedVariables);
+      
+      overlay.innerHTML = `
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 24px;
+          max-width: 400px;
+          width: 100%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        ">
+          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">
+            Confirm Push to Fragmento
+          </h2>
+          
+          <p style="color: #666; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
+            This will sync ${selectedVariables.length} variables from Figma to your Fragmento project.
+          </p>
+          
+          <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>
+            <div style="font-size: 13px; color: #374151; line-height: 1.6;">
+              <div>• <strong>${stats.newTokens}</strong> new tokens will be created</div>
+              <div>• <strong>${stats.newSets}</strong> new sets will be created</div>
+              <div>• <strong>${stats.collections.length}</strong> collections will be processed</div>
+              ${stats.warnings > 0 ? `<div style="color: #f59e0b;">• <strong>${stats.warnings}</strong> warnings detected</div>` : ''}
+            </div>
+          </div>
+          
+          ${stats.warnings > 0 ? `
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
+              <div style="color: #92400e; font-size: 12px; font-weight: 500;">⚠️ Warnings:</div>
+              <div style="color: #92400e; font-size: 11px; margin-top: 4px;">
+                Some variables have type compatibility issues. They will be converted automatically.
+              </div>
+            </div>
+          ` : ''}
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="closePushDialog()" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #f3f4f6;
+              color: #374151;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              Cancel
+            </button>
+            <button onclick="executePush(${JSON.stringify(selectedVariables).replace(/"/g, '&quot;')})" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #18a0fb;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              Confirm Push
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(overlay);
+      window.currentPushOverlay = overlay;
+    }
+
+    function analyzeSelectedVariables(selectedVariables) {
+      // This would normally analyze against existing Fragmento data
+      // For now, return mock analysis
+      const collections = [...new Set(selectedVariables.map(v => v.collectionId))];
+      
+      return {
+        newTokens: selectedVariables.length,
+        updatedTokens: 0,
+        newSets: collections.length,
+        collections: collections,
+        warnings: selectedVariables.filter(v => {
+          // Check if variable has warnings (would need to access variable data)
+          return false; // Placeholder
+        }).length
+      };
+    }
+
+    function closePushDialog() {
+      if (window.currentPushOverlay) {
+        document.body.removeChild(window.currentPushOverlay);
+        window.currentPushOverlay = null;
+      }
+    }
+
+    function executePush(selectedVariables) {
+      closePushDialog();
+      
+      console.log('Executing push:', selectedVariables.length);
+      
+      // Send push request to plugin
+      if (parent && parent.postMessage) {
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'push-variables',
+            payload: { selectedVariables }
+          } 
+        }, '*');
+      }
+      
+      // Show initial loading state
+      const mainContent = document.getElementById('mainContent');
+      if (mainContent) {
+        mainContent.innerHTML = `
+          <div id="pushProgress" style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 32px; margin-bottom: 16px;">📤</div>
+            <h2 id="pushTitle" style="color: #1a1a1a; font-size: 16px; font-weight: 500; margin: 0 0 8px 0;">Preparing to push...</h2>
+            <p id="pushMessage" style="color: #666; font-size: 13px; margin: 0 0 16px 0;">Initializing sync of ${selectedVariables.length} variables</p>
+            <div style="width: 100%; max-width: 300px; margin: 0 auto; background: #f3f4f6; border-radius: 8px; overflow: hidden;">
+              <div id="progressBar" style="height: 4px; background: #18a0fb; width: 10%; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function updatePushProgress(stage, message) {
+      const pushTitle = document.getElementById('pushTitle');
+      const pushMessage = document.getElementById('pushMessage');
+      const progressBar = document.getElementById('progressBar');
+      
+      if (pushTitle) pushTitle.textContent = getStageTitle(stage);
+      if (pushMessage) pushMessage.textContent = message;
+      if (progressBar) {
+        const progress = getStageProgress(stage);
+        progressBar.style.width = progress + '%';
+      }
+    }
+
+    function getStageTitle(stage) {
+      switch (stage) {
+        case 'pushing': return 'Pushing to Fragmento...';
+        case 'processing': return 'Processing Variables...';
+        case 'completing': return 'Finalizing Changes...';
+        default: return 'Processing...';
+      }
+    }
+
+    function getStageProgress(stage) {
+      switch (stage) {
+        case 'pushing': return 30;
+        case 'processing': return 70;
+        case 'completing': return 90;
+        default: return 10;
+      }
+    }
+
+    function showPushSuccess(payload) {
+      const mainContent = document.getElementById('mainContent');
+      if (!mainContent) return;
+      
+      const { summary, results, projectUrl } = payload;
+      const hasErrors = results.errors && results.errors.length > 0;
+      
+      mainContent.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 48px; margin-bottom: 24px;">${hasErrors ? '⚠️' : '🎉'}</div>
+          
+          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
+            ${hasErrors ? 'Push Completed with Warnings' : 'Successfully Pushed to Fragmento!'}
+          </h2>
+          
+          <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 24px 0; text-align: left;">
+            <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>
+            <div style="font-size: 13px; color: #374151; line-height: 1.6;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span>Tokens Created:</span>
+                <strong style="color: #10b981;">${summary.tokensCreated}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span>Tokens Updated:</span>
+                <strong style="color: #3b82f6;">${summary.tokensUpdated}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span>Sets Created:</span>
+                <strong style="color: #8b5cf6;">${summary.setsCreated}</strong>
+              </div>
+              ${hasErrors ? `
+                <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
+                  <span>Errors:</span>
+                  <strong style="color: #ef4444;">${summary.errors.length}</strong>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          
+          ${hasErrors ? `
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 12px; margin-bottom: 20px; text-align: left;">
+              <div style="color: #dc2626; font-size: 12px; font-weight: 500; margin-bottom: 8px;">⚠️ Errors encountered:</div>
+              <div style="max-height: 120px; overflow-y: auto;">
+                ${summary.errors.map(error => `
+                  <div style="color: #dc2626; font-size: 11px; margin-bottom: 4px; padding: 4px 8px; background: white; border-radius: 4px;">
+                    ${error}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button onclick="importFigmaVariables()" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #f3f4f6;
+              color: #374151;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              Import More Variables
+            </button>
+            <button onclick="openInFragmento('${projectUrl}')" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #18a0fb;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              View in Fragmento
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function showPushError(errorMessage) {
+      const mainContent = document.getElementById('mainContent');
+      if (!mainContent) return;
+      
+      mainContent.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 48px; margin-bottom: 24px;">❌</div>
+          
+          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
+            Push Failed
+          </h2>
+          
+          <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
+            There was an error pushing your variables to Fragmento.
+          </p>
+          
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 16px; margin-bottom: 24px; text-align: left;">
+            <div style="color: #dc2626; font-size: 12px; font-weight: 500; margin-bottom: 8px;">Error Details:</div>
+            <div style="color: #dc2626; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;">
+              ${errorMessage}
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 12px;">
+            <button onclick="importFigmaVariables()" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #f3f4f6;
+              color: #374151;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              Back to Variables
+            </button>
+            <button onclick="confirmImport()" style="
+              flex: 1;
+              padding: 12px 16px;
+              background: #18a0fb;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: 500;
+              font-size: 14px;
+            ">
+              Try Again
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function openInFragmento(url) {
+      if (url) {
+        // Send message to plugin to open URL
+        if (parent && parent.postMessage) {
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'open-url', 
+              payload: { url } 
             } 
           }, '*');
         }

@@ -85,7 +85,18 @@ export type MessageType =
   | 'clear-organization'
   | 'clear-project'
   | 'user-info-loaded'
-  | 'logout';
+  | 'logout'
+  | 'load-project'
+  | 'project-loaded'
+  | 'scan-variables'
+  | 'variables-scanned'
+  | 'import-variables'
+  | 'import-success'
+  | 'import-error'
+  | 'push-progress'
+  | 'push-success'
+  | 'push-error'
+  | 'open-url';
 
 export interface PluginMessage {
   type: MessageType;
