@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
+
+// CORS headers for Figma plugin
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS(request: NextRequest) {
+  return new Response(null, { status: 200, headers: corsHeaders });
+}
 import jwt from 'jsonwebtoken';
 
 export async function GET(request: NextRequest) {
@@ -37,7 +48,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch organizations' }, { status: 500 });
     }
 
-    return NextResponse.json(organizations);
+    return NextResponse.json(organizations, { headers: corsHeaders });
     
   } catch (error) {
     console.error('API error:', error);
