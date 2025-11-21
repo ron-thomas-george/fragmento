@@ -117,6 +117,13 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
   try {
     console.log('Plugin received message:', msg.type);
     switch (msg.type) {
+      case 'ping':
+        console.log('Ping received, sending pong...');
+        figma.ui.postMessage({
+          type: 'pong',
+          payload: { message: 'Plugin is connected and working!' }
+        });
+        break;
       case 'get-auth-status':
         console.log('Manual auth status check requested');
         await init(); // Re-run initialization to send current auth status

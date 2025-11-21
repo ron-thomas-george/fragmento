@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       console.error('Missing required parameters for token storage:', { state: !!state, token: !!token, userId: !!userId, expiresIn: !!expiresIn });
       return NextResponse.json(
         { error: 'Missing required parameters' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     console.error('Token storage error:', error);
     return NextResponse.json(
       { error: 'Failed to store token' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       console.error('Missing state parameter in polling request');
       return NextResponse.json(
         { error: 'Missing state parameter' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
       console.log('Token not found for state:', state, 'Available states:', Array.from(tokenStorage.keys()));
       return NextResponse.json(
         { error: 'Token not found' },
-        { status: 404 }
+        { status: 404, headers: corsHeaders }
       );
     }
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     console.error('Token retrieval error:', error);
     return NextResponse.json(
       { error: 'Failed to retrieve token' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

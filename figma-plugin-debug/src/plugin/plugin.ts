@@ -114,18 +114,28 @@ async function fetchUserInfoBackground(authToken: AuthToken) {
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
-  try {
-    console.log('Plugin received message:', msg.type);
-    switch (msg.type) {
-      case 'get-auth-status':
-        console.log('Manual auth status check requested');
-        await init(); // Re-run initialization to send current auth status
-        break;
+  console.log('Plugin received message:', msg.type);
+  
+  switch (msg.type) {
+    case 'ping':
+      console.log('Ping received, sending pong...');
+      figma.ui.postMessage({
+        type: 'pong',
+        payload: { message: 'Plugin is connected and working!' }
+      });
+      break;
+    case 'get-auth-status':
+      console.log('Manual auth status check requested');
+      await init(); // Re-run initialization to send current auth status
+      break;
         
-      case 'authenticate':
-        await handleAuthentication();
-        break;
+    case 'authenticate':
+      await handleAuthentication();
+      break;
         
+    case 'set-auth-token':
+      await handleSetAuthToken(msg.payload);
+      break;
       case 'set-auth-token':
         await handleSetAuthToken(msg.payload);
         break;
@@ -414,12 +424,18 @@ async function handleFetchOrganizations(authToken: AuthToken) {
   try {
     console.log('Fetching organizations...');
     
-    // Simple fetch without AbortController (not available in Figma)
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
     const response = await fetch('https://fragmento-theta.vercel.app/api/organizations', {
       headers: {
         'Authorization': `Bearer ${authToken.token}`
-      }
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch organizations: ${response.statusText}`);

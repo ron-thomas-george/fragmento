@@ -61,23 +61,30 @@ export interface AppState {
 }
 
 export type MessageType = 
+  | 'ping'
+  | 'pong'
   | 'get-auth-status'
   | 'authenticate'
   | 'auth-initiated'
-  | 'poll-token'
+  | 'auth-success'
+  | 'auth-error'
+  | 'set-auth-token'
   | 'token-found'
+  | 'poll-token'
   | 'get-variables'
+  | 'variables-loaded'
   | 'push-variables'
+  | 'push-success'
+  | 'push-error'
   | 'fetch-organizations'
-  | 'fetch-projects'
   | 'organizations-loaded'
+  | 'fetch-projects'
   | 'projects-loaded'
-  | 'user-info-loaded'
   | 'store-organization'
   | 'store-project'
   | 'clear-organization'
   | 'clear-project'
-  | 'set-auth-token'
+  | 'user-info-loaded'
   | 'logout';
 
 export interface PluginMessage {
