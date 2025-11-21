@@ -123,6 +123,17 @@
         case "clear-project":
           await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
           break;
+        case "token-found":
+          if (currentPollInterval) {
+            clearInterval(currentPollInterval);
+            currentPollInterval = null;
+          }
+          await handleSetAuthToken({
+            token: msg.payload.token,
+            userId: msg.payload.userId,
+            expiresIn: msg.payload.expiresIn
+          });
+          break;
         case "logout":
           await handleLogout();
           break;
@@ -148,41 +159,40 @@
     });
     startTokenPolling(state);
   }
+  var currentPollInterval = null;
+  var pollAttempts = 0;
   async function startTokenPolling(state) {
     console.log("Starting token polling for state:", state);
-    let attempts = 0;
+    if (currentPollInterval) {
+      clearInterval(currentPollInterval);
+      currentPollInterval = null;
+    }
+    pollAttempts = 0;
     const maxAttempts = 60;
-    const pollInterval = setInterval(async () => {
-      attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+    const pollFunction = () => {
+      pollAttempts++;
+      console.log(`Polling attempt ${pollAttempts}/${maxAttempts}`);
       try {
-        const response = await fetch(`https://fragmento-theta.vercel.app/api/figma/poll-token?state=${state}`);
-        if (response.ok) {
-          const tokenData = await response.json();
-          console.log("Token received via polling");
-          clearInterval(pollInterval);
-          await handleSetAuthToken({
-            token: tokenData.token,
-            userId: tokenData.userId,
-            expiresIn: tokenData.expiresIn
-          });
-        } else if (response.status === 404) {
-          console.log("Token not ready, continuing to poll...");
-        } else {
-          throw new Error(`Polling failed: ${response.status}`);
-        }
+        figma.ui.postMessage({
+          type: "poll-token",
+          payload: { state, attempt: pollAttempts }
+        });
       } catch (error) {
         console.error("Token polling error:", error);
       }
-      if (attempts >= maxAttempts) {
+      if (pollAttempts >= maxAttempts) {
         console.log("Token polling timeout");
-        clearInterval(pollInterval);
+        if (currentPollInterval) {
+          clearInterval(currentPollInterval);
+          currentPollInterval = null;
+        }
         figma.ui.postMessage({
           type: "auth-error",
           payload: { message: "Authentication timeout. Please try again." }
         });
       }
-    }, 5e3);
+    };
+    currentPollInterval = setInterval(pollFunction, 5e3);
   }
   async function handleSetAuthToken(payload) {
     try {
@@ -430,6 +440,13 @@
     }
     return String(value);
   }
+  function cleanup() {
+    if (currentPollInterval) {
+      clearInterval(currentPollInterval);
+      currentPollInterval = null;
+    }
+  }
+  figma.on("close", cleanup);
   setTimeout(() => {
     try {
       init().catch((error) => {

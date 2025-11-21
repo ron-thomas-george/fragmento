@@ -163,6 +163,21 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
         break;
         
+      case 'token-found':
+        // Clear polling
+        if (currentPollInterval) {
+          clearInterval(currentPollInterval);
+          currentPollInterval = null;
+        }
+        
+        // Process the token
+        await handleSetAuthToken({
+          token: msg.payload.token,
+          userId: msg.payload.userId,
+          expiresIn: msg.payload.expiresIn
+        });
+        break;
+        
       case 'logout':
         await handleLogout();
         break;
@@ -199,53 +214,52 @@ async function handleAuthentication() {
   startTokenPolling(state);
 }
 
+// Store polling state globally to avoid memory issues
+let currentPollInterval: any = null;
+let pollAttempts = 0;
+
 async function startTokenPolling(state: string) {
   console.log('Starting token polling for state:', state);
   
-  let attempts = 0;
+  // Clear any existing polling
+  if (currentPollInterval) {
+    clearInterval(currentPollInterval);
+    currentPollInterval = null;
+  }
+  
+  pollAttempts = 0;
   const maxAttempts = 60; // Poll for 5 minutes (60 * 5 seconds)
   
-  const pollInterval = setInterval(async () => {
-    attempts++;
-    console.log(`Polling attempt ${attempts}/${maxAttempts}`);
+  // Use a simple function reference to avoid closure issues
+  const pollFunction = () => {
+    pollAttempts++;
+    console.log(`Polling attempt ${pollAttempts}/${maxAttempts}`);
     
     try {
-      const response = await fetch(`https://fragmento-theta.vercel.app/api/figma/poll-token?state=${state}`);
-      
-      if (response.ok) {
-        const tokenData = await response.json();
-        console.log('Token received via polling');
-        
-        // Clear polling
-        clearInterval(pollInterval);
-        
-        // Process the token
-        await handleSetAuthToken({
-          token: tokenData.token,
-          userId: tokenData.userId,
-          expiresIn: tokenData.expiresIn
-        });
-        
-      } else if (response.status === 404) {
-        // Token not ready yet, continue polling
-        console.log('Token not ready, continuing to poll...');
-      } else {
-        throw new Error(`Polling failed: ${response.status}`);
-      }
+      // Use figma.ui.postMessage to request token check from UI
+      figma.ui.postMessage({
+        type: 'poll-token',
+        payload: { state, attempt: pollAttempts }
+      });
     } catch (error) {
       console.error('Token polling error:', error);
     }
     
     // Stop polling after max attempts
-    if (attempts >= maxAttempts) {
+    if (pollAttempts >= maxAttempts) {
       console.log('Token polling timeout');
-      clearInterval(pollInterval);
+      if (currentPollInterval) {
+        clearInterval(currentPollInterval);
+        currentPollInterval = null;
+      }
       figma.ui.postMessage({
         type: 'auth-error',
         payload: { message: 'Authentication timeout. Please try again.' }
       });
     }
-  }, 5000); // Poll every 5 seconds
+  };
+  
+  currentPollInterval = setInterval(pollFunction, 5000); // Poll every 5 seconds
 }
 
 async function handleSetAuthToken(payload: { token: string; userId: string; expiresIn: number }) {
@@ -553,6 +567,17 @@ function getTokenValue(valuesByMode: { [modeId: string]: VariableValue }, resolv
   
   return String(value);
 }
+
+// Cleanup function
+function cleanup() {
+  if (currentPollInterval) {
+    clearInterval(currentPollInterval);
+    currentPollInterval = null;
+  }
+}
+
+// Handle plugin close
+figma.on('close', cleanup);
 
 // Initialize the plugin with a small delay to ensure UI is ready
 setTimeout(() => {

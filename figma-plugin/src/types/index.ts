@@ -64,6 +64,8 @@ export type MessageType =
   | 'get-auth-status'
   | 'authenticate'
   | 'auth-initiated'
+  | 'poll-token'
+  | 'token-found'
   | 'get-variables'
   | 'push-variables'
   | 'fetch-organizations'
