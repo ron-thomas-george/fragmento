@@ -45,24 +45,48 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createSupabaseServerClient();
+    let supabase;
+    try {
+      supabase = await createSupabaseServerClient();
+      console.log('Supabase client created successfully');
+    } catch (supabaseError) {
+      console.error('Failed to create Supabase client:', supabaseError);
+      return NextResponse.json(
+        { error: 'Database connection failed' }, 
+        { status: 500, headers: corsHeaders }
+      );
+    }
     
     // Fetch organizations for the user
     console.log('Fetching organizations for user:', decoded.userId);
-    const { data: organizations, error } = await supabase
-      .from('organizations')
-      .select('id, name, slug')
-      .eq('owner_id', decoded.userId);
+    
+    let organizations, error;
+    try {
+      const result = await supabase
+        .from('organizations')
+        .select('id, name, slug')
+        .eq('owner_id', decoded.userId);
+      
+      organizations = result.data;
+      error = result.error;
+    } catch (queryError) {
+      console.error('Database query error:', queryError);
+      return NextResponse.json(
+        { error: 'Database query failed' }, 
+        { status: 500, headers: corsHeaders }
+      );
+    }
 
     if (error) {
-      console.error('Error fetching organizations:', error);
+      console.error('Supabase error fetching organizations:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch organizations' }, 
+        { error: 'Failed to fetch organizations', details: error.message }, 
         { status: 500, headers: corsHeaders }
       );
     }
 
     console.log('Organizations found:', organizations?.length || 0);
+    console.log('Organizations data:', organizations);
     return NextResponse.json(organizations || [], { headers: corsHeaders });
     
   } catch (error) {
