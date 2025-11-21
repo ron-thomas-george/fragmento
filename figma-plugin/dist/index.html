@@ -5,30 +5,177 @@
   <title>Fragmento</title>
   <link rel="stylesheet" href="ui.css">
   <style>
+    /* Figma Plugin Theme */
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #ffffff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--figma-color-bg);
+      color: var(--figma-color-text);
+      font-size: 11px;
+      line-height: 16px;
     }
-    #react-page {
+    
+    /* Figma CSS Variables Fallbacks */
+    :root {
+      --figma-color-bg: #ffffff;
+      --figma-color-bg-secondary: #f9f9f9;
+      --figma-color-bg-tertiary: #f1f1f1;
+      --figma-color-text: #333333;
+      --figma-color-text-secondary: #666666;
+      --figma-color-text-tertiary: #999999;
+      --figma-color-border: #e5e5e5;
+      --figma-color-icon: #333333;
+      --figma-color-icon-secondary: #666666;
+      --figma-color-bg-brand: #18a0fb;
+      --figma-color-text-onbrand: #ffffff;
+      --figma-color-bg-hover: #f0f0f0;
+      --figma-color-bg-pressed: #e8e8e8;
+    }
+    
+    /* Dark theme support */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --figma-color-bg: #2c2c2c;
+        --figma-color-bg-secondary: #383838;
+        --figma-color-bg-tertiary: #444444;
+        --figma-color-text: #ffffff;
+        --figma-color-text-secondary: #cccccc;
+        --figma-color-text-tertiary: #999999;
+        --figma-color-border: #444444;
+        --figma-color-icon: #ffffff;
+        --figma-color-icon-secondary: #cccccc;
+        --figma-color-bg-hover: #383838;
+        --figma-color-bg-pressed: #444444;
+      }
+    }
+    
+    #app {
       width: 100%;
       height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .fallback-ui {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      height: 100%;
+      text-align: center;
+    }
+    
+    .fallback-ui h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--figma-color-text);
+      margin: 0 0 8px 0;
+      letter-spacing: -0.01em;
+    }
+    
+    .fallback-ui p {
+      font-size: 11px;
+      color: var(--figma-color-text-secondary);
+      margin: 0 0 24px 0;
+      line-height: 16px;
+      max-width: 280px;
+    }
+    
+    .auth-button {
+      background: var(--figma-color-bg-brand);
+      color: var(--figma-color-text-onbrand);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.1s ease;
+      outline: none;
+    }
+    
+    .auth-button:hover {
+      background: #0d8ce8;
+    }
+    
+    .auth-button:active {
+      background: #0976cc;
+    }
+    
+    .auth-button:focus-visible {
+      box-shadow: 0 0 0 2px var(--figma-color-bg-brand);
+    }
+    
+    /* Loading state */
+    .loading-text {
+      color: var(--figma-color-text-secondary);
+      font-size: 11px;
+    }
+    
+    /* Error state */
+    .error-text {
+      color: #f24822;
+      font-size: 11px;
     }
   </style>
 </head>
 <body>
-  <div id="react-page">
-    <div style="padding: 20px; text-align: center;">
+  <div id="app">
+    <div class="fallback-ui">
       <h2>Fragmento</h2>
-      <p>Loading...</p>
+      <p>Initializing plugin...</p>
     </div>
   </div>
   
   <script>
+    console.log('Fragmento plugin HTML loaded');
+    
+    // Fallback UI if JavaScript fails to load
+    let jsLoadTimeout = setTimeout(() => {
+      console.log('JavaScript loading timeout, showing fallback UI');
+      document.getElementById('app').innerHTML = `
+        <div class="fallback-ui">
+          <h2>Fragmento</h2>
+          <p>Connect to your Fragmento account to sync design tokens</p>
+          <button class="auth-button" onclick="authenticate()">
+            Authenticate with Fragmento
+          </button>
+        </div>
+      `;
+    }, 2000);
+    
+    // Clear timeout if JS loads successfully
+    window.jsLoaded = function() {
+      clearTimeout(jsLoadTimeout);
+      console.log('JavaScript loaded successfully');
+    };
+    
+    // Fallback authentication function
+    window.authenticate = function() {
+      console.log('Fallback authentication triggered');
+      parent.postMessage({ pluginMessage: { type: 'authenticate' } }, '*');
+    };
+    
     // Add error handling
     window.onerror = function(msg, url, line, col, error) {
       console.error('Error:', msg, 'at', url, ':', line, ':', col);
+      document.getElementById('app').innerHTML = `
+        <div class="fallback-ui">
+          <h2>Plugin Error</h2>
+          <p style="color: red;">${msg}</p>
+          <p>Check console for details</p>
+          <button class="auth-button" onclick="location.reload()">
+            Reload Plugin
+          </button>
+        </div>
+      `;
       return false;
     };
   </script>

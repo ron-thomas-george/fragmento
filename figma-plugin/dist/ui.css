@@ -6,18 +6,19 @@
 }
 body {
   font-family:
+    "Inter",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
     sans-serif;
-  font-size: 12px;
-  line-height: 1.4;
-  color: #1f2937;
-  background: #ffffff;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--figma-color-text);
+  background: var(--figma-color-bg);
   overflow: hidden;
 }
-#react-page {
+#app {
   width: 100%;
   height: 100vh;
   display: flex;
@@ -32,10 +33,10 @@ body {
   gap: 12px;
 }
 .loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #e5e7eb;
-  border-top: 2px solid #6366f1;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--figma-color-border);
+  border-top: 1px solid var(--figma-color-bg-brand);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -51,85 +52,84 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 24px;
+  padding: 16px;
 }
 .auth-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 .logo {
-  margin: 0 auto 12px;
-  width: 32px;
-  height: 32px;
+  margin: 0 auto 8px;
+  width: 24px;
+  height: 24px;
 }
 .auth-header h1 {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 600;
   margin-bottom: 4px;
+  color: var(--figma-color-text);
 }
 .auth-header p {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--figma-color-text-secondary);
 }
 .auth-content {
   flex: 1;
 }
 .auth-content h2 {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   margin-bottom: 8px;
+  color: var(--figma-color-text);
 }
 .auth-content > p {
   font-size: 11px;
-  color: #6b7280;
-  margin-bottom: 24px;
-  line-height: 1.5;
+  color: var(--figma-color-text-secondary);
+  margin-bottom: 16px;
+  line-height: 16px;
 }
 .auth-button {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #6366f1;
-  color: white;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--figma-color-bg-brand);
+  color: var(--figma-color-text-onbrand);
   border: none;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  min-height: 32px;
+  font-family: inherit;
 }
 .auth-button:hover {
-  background: #5856eb;
+  background: #0d8ce8;
 }
-.auth-info {
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 6px;
-  margin-bottom: 24px;
+.auth-description {
+  margin-top: 12px;
 }
-.auth-info h3 {
+.auth-description p {
   font-size: 11px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  color: var(--figma-color-text-secondary);
+  line-height: 16px;
+  text-align: center;
 }
-.auth-info ul {
-  list-style: none;
-  font-size: 10px;
-  color: #6b7280;
+.retry-button {
+  background: none;
+  border: none;
+  color: var(--figma-color-bg-brand);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 8px;
+  text-decoration: underline;
 }
-.auth-info li {
-  margin-bottom: 4px;
-  padding-left: 12px;
-  position: relative;
-}
-.auth-info li::before {
-  content: "\2022";
-  position: absolute;
-  left: 0;
-  color: #6366f1;
+.retry-button:hover {
+  color: #0d8ce8;
 }
 .auth-footer {
   text-align: center;
@@ -137,8 +137,104 @@ body {
   color: #6b7280;
 }
 .auth-footer a {
-  color: #6366f1;
+  color: var(--figma-color-bg-brand);
   text-decoration: none;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--figma-color-border);
+  background: var(--figma-color-bg-secondary);
+}
+.user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+  overflow: hidden;
+  background: var(--figma-color-bg-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-initials {
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+}
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+.user-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--figma-color-text);
+  margin-bottom: 2px;
+}
+.user-email {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selector-help {
+  margin-top: 4px;
+}
+.selector-help a {
+  font-size: 10px;
+  color: var(--figma-color-bg-brand);
+  text-decoration: none;
+}
+.selector-help a:hover {
+  text-decoration: underline;
+}
+.project-actions {
+  padding: 16px;
+}
+.project-info {
+  margin-bottom: 16px;
+}
+.project-info h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+  margin-bottom: 4px;
+}
+.project-info p {
+  font-size: 11px;
+  color: var(--figma-color-text-secondary);
+  line-height: 16px;
+}
+.action-buttons {
+  margin-bottom: 16px;
+}
+.sync-info {
+  background: var(--figma-color-bg-secondary);
+  border-radius: 6px;
+  padding: 12px;
+}
+.sync-info h4 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+  margin-bottom: 8px;
+}
+.sync-info ol {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+  padding-left: 16px;
+  line-height: 14px;
+}
+.sync-info li {
+  margin-bottom: 4px;
 }
 .main-screen {
   display: flex;

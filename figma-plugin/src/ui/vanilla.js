@@ -1,17 +1,24 @@
 // Vanilla JavaScript implementation for Figma plugin UI
 console.log('Fragmento plugin UI loaded');
 
+// Signal that JavaScript loaded successfully
+if (window.jsLoaded) {
+  window.jsLoaded();
+}
+
 class FragmentoPlugin {
   constructor() {
     this.state = {
       isAuthenticated: false,
       authToken: null,
+      userInfo: null,
       selectedOrganization: null,
       selectedProject: null,
       organizations: [],
       projects: [],
       collections: [],
       isLoading: true,
+      isLoadingProjects: false,
       error: null
     };
     
@@ -19,14 +26,24 @@ class FragmentoPlugin {
   }
 
   init() {
+    console.log('FragmentoPlugin UI initializing...');
+    
     // Listen for messages from the plugin
     window.onmessage = (event) => {
+      console.log('UI received message:', event.data);
       const message = event.data.pluginMessage;
       if (!message) return;
       this.handlePluginMessage(message);
     };
 
+    // Show initial loading state
     this.render();
+    
+    // Request initial auth status after a short delay
+    setTimeout(() => {
+      console.log('UI requesting initial auth status...');
+      this.postMessage({ type: 'get-auth-status' });
+    }, 200);
   }
 
   handlePluginMessage(message) {
@@ -36,6 +53,7 @@ class FragmentoPlugin {
       case 'auth-status':
         this.state.isAuthenticated = message.payload.isAuthenticated;
         this.state.authToken = message.payload.authToken;
+        this.state.userInfo = message.payload.userInfo;
         this.state.isLoading = false;
         this.render();
         break;
@@ -43,13 +61,10 @@ class FragmentoPlugin {
       case 'auth-success':
         this.state.isAuthenticated = true;
         this.state.authToken = message.payload.authToken;
+        this.state.userInfo = message.payload.userInfo;
         this.state.error = null;
         this.render();
-        // Fetch organizations
-        this.postMessage({ 
-          type: 'fetch-organizations', 
-          payload: { authToken: message.payload.authToken } 
-        });
+        // Organizations will be fetched automatically by the plugin
         break;
 
       case 'organizations-loaded':
@@ -101,7 +116,7 @@ class FragmentoPlugin {
   }
 
   render() {
-    const container = document.getElementById('react-page');
+    const container = document.getElementById('app');
     
     if (this.state.isLoading) {
       container.innerHTML = this.renderLoading();
@@ -128,8 +143,8 @@ class FragmentoPlugin {
       <div class="auth-screen">
         <div class="auth-header">
           <div class="logo">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#6366F1"/>
+            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+              <rect width="32" height="32" rx="8" fill="var(--figma-color-bg-brand)"/>
               <path d="M8 12h16v2H8v-2zm0 4h12v2H8v-2zm0 4h8v2H8v-2z" fill="white"/>
             </svg>
           </div>
@@ -138,41 +153,34 @@ class FragmentoPlugin {
         </div>
 
         <div class="auth-content">
-          <h2>Connect to Fragmento</h2>
-          <p>
-            Sync your Figma variables with your design token system. 
-            Authenticate with your Fragmento account to get started.
-          </p>
-
           ${this.state.error ? `
             <div class="error-message">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 5h2v4H7V5zm0 5h2v1H7v-1z" fill="#EF4444"/>
+                <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 5h2v4H7V5zm0 5h2v1H7v-1z" fill="#f24822"/>
               </svg>
               ${this.state.error}
+              <button class="retry-button" id="retry-btn">Try Again</button>
             </div>
           ` : ''}
 
           <button class="auth-button" id="auth-btn">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2L3 7v11h4v-6h6v6h4V7l-7-5z" fill="currentColor"/>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1L3 5v8h2V9h6v4h2V5l-5-4z" fill="currentColor"/>
             </svg>
             Authenticate with Fragmento
           </button>
 
-          <div class="auth-info">
-            <h3>This plugin will request access to:</h3>
-            <ul>
-              <li>Read and write Figma variables</li>
-              <li>Access your Fragmento projects and tokens</li>
-              <li>Sync changes between Figma and your web app</li>
-            </ul>
+          <div class="auth-description">
+            <p>
+              This will open your browser to authorize the plugin. You'll be able to review 
+              the permissions before granting access.
+            </p>
           </div>
         </div>
 
         <div class="auth-footer">
           <p>
-            Need help? <a href="https://fragmento.app/support" target="_blank" rel="noopener noreferrer">Contact Support</a>
+            Need help? <a href="https://fragmento-theta.vercel.app/support" target="_blank" rel="noopener noreferrer">Contact Support</a>
           </p>
         </div>
       </div>
@@ -185,111 +193,204 @@ class FragmentoPlugin {
         <div class="main-header">
           <div class="header-content">
             <div class="logo-small">
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                <rect width="32" height="32" rx="8" fill="#6366F1"/>
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="8" fill="var(--figma-color-bg-brand)"/>
                 <path d="M8 12h16v2H8v-2zm0 4h12v2H8v-2zm0 4h8v2H8v-2z" fill="white"/>
               </svg>
               <span>Fragmento</span>
             </div>
-            <button class="logout-button" id="logout-btn">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <button class="logout-button" id="logout-btn" title="Sign out">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                 <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 6l4 4-4 4M14 10H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
           </div>
         </div>
 
+        ${this.renderUserInfo()}
+
         <div class="main-content">
+          ${this.state.error ? `
+            <div class="error-message">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 5h2v4H7V5zm0 5h2v1H7v-1z" fill="#f24822"/>
+              </svg>
+              ${this.state.error}
+              <button class="retry-button" id="error-retry-btn">Try Again</button>
+            </div>
+          ` : ''}
+
           <div class="selectors">
             ${this.renderOrganizationSelector()}
             ${this.state.selectedOrganization ? this.renderProjectSelector() : ''}
           </div>
 
-          ${this.state.error ? `
-            <div class="error-message">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7 5h2v4H7V5zm0 5h2v1H7v-1z" fill="#EF4444"/>
-              </svg>
-              ${this.state.error}
-            </div>
-          ` : ''}
+          ${this.state.selectedProject ? this.renderProjectActions() : this.renderEmptyState()}
+        </div>
+      </div>
+    `;
+  }
 
-          ${this.state.selectedProject ? this.renderEmptyState() : ''}
+  renderUserInfo() {
+    if (!this.state.authToken || !this.state.userInfo) return '';
+    
+    const user = this.state.userInfo;
+    const initials = user.full_name ? 
+      user.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : 
+      user.email[0].toUpperCase();
+    
+    return `
+      <div class="user-info">
+        <div class="user-avatar">
+          ${user.avatar_url ? 
+            `<img src="${user.avatar_url}" alt="${user.full_name || user.email}" />` :
+            `<span class="avatar-initials">${initials}</span>`
+          }
+        </div>
+        <div class="user-details">
+          <div class="user-name">${user.full_name || 'User'}</div>
+          <div class="user-email">${user.email}</div>
         </div>
       </div>
     `;
   }
 
   renderOrganizationSelector() {
+    const hasOrganizations = this.state.organizations.length > 0;
+    const isLoading = this.state.isLoading && this.state.organizations.length === 0;
+    
     return `
       <div class="selector">
         <label for="organization-select">Organization</label>
-        <select id="organization-select">
-          <option value="">Select an organization</option>
-          ${this.state.organizations.map(org => 
-            `<option value="${org.id}" ${this.state.selectedOrganization?.id === org.id ? 'selected' : ''}>${org.name}</option>`
-          ).join('')}
+        <select id="organization-select" ${isLoading ? 'disabled' : ''}>
+          ${isLoading ? 
+            '<option value="">Loading organizations...</option>' :
+            hasOrganizations ? 
+              `<option value="">Select an organization</option>
+               ${this.state.organizations.map(org => 
+                 `<option value="${org.id}" ${this.state.selectedOrganization?.id === org.id ? 'selected' : ''}>
+                   ${org.name}
+                 </option>`
+               ).join('')}` :
+              '<option value="">No organizations available</option>'
+          }
         </select>
+        ${!hasOrganizations && !isLoading ? `
+          <div class="selector-help">
+            <a href="https://fragmento-theta.vercel.app/organizations/new" target="_blank" rel="noopener noreferrer">
+              Create your first organization
+            </a>
+          </div>
+        ` : ''}
       </div>
     `;
   }
 
   renderProjectSelector() {
+    const hasProjects = this.state.projects.length > 0;
+    const isLoading = this.state.isLoadingProjects;
+    
     return `
       <div class="selector">
         <label for="project-select">Project</label>
-        <select id="project-select">
-          <option value="">Select a project</option>
-          ${this.state.projects.map(project => 
-            `<option value="${project.id}" ${this.state.selectedProject?.id === project.id ? 'selected' : ''}>${project.name}</option>`
-          ).join('')}
+        <select id="project-select" ${isLoading || !this.state.selectedOrganization ? 'disabled' : ''}>
+          ${isLoading ? 
+            '<option value="">Loading projects...</option>' :
+            hasProjects ? 
+              `<option value="">Select a project</option>
+               ${this.state.projects.map(project => 
+                 `<option value="${project.id}" ${this.state.selectedProject?.id === project.id ? 'selected' : ''}>
+                   ${project.name} ${project.access_level ? `(${project.access_level})` : ''}
+                 </option>`
+               ).join('')}` :
+              this.state.selectedOrganization ? 
+                '<option value="">No projects available</option>' :
+                '<option value="">Select an organization first</option>'
+          }
         </select>
+        ${hasProjects === false && this.state.selectedOrganization && !isLoading ? `
+          <div class="selector-help">
+            <a href="https://fragmento-theta.vercel.app/organizations/${this.state.selectedOrganization.id}/projects/new" target="_blank" rel="noopener noreferrer">
+              Create your first project
+            </a>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  renderProjectActions() {
+    if (!this.state.selectedProject) return '';
+    
+    return `
+      <div class="project-actions">
+        <div class="project-info">
+          <h3>${this.state.selectedProject.name}</h3>
+          <p>Ready to sync your design tokens with this project.</p>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="primary-button" id="import-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1v10M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Import Variables
+          </button>
+        </div>
+
+        <div class="sync-info">
+          <h4>How it works:</h4>
+          <ol>
+            <li>Import variables from your current Figma file</li>
+            <li>Review variables organized by collections</li>
+            <li>Push selected variables to your Fragmento project</li>
+            <li>Variables appear in Pending Changes for release creation</li>
+          </ol>
+        </div>
       </div>
     `;
   }
 
   renderEmptyState() {
+    if (this.state.selectedProject) return '';
+    
+    if (!this.state.selectedOrganization) {
+      return `
+        <div class="empty-state">
+          <div class="empty-state-content">
+            <div class="empty-state-icon">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                <rect x="8" y="12" width="32" height="24" rx="4" stroke="var(--figma-color-icon-secondary)" stroke-width="2" fill="none"/>
+                <path d="M16 20h16M16 24h12M16 28h8" stroke="var(--figma-color-icon-secondary)" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            
+            <h3>Select an organization</h3>
+            <p>Choose an organization to view its projects and start syncing design tokens.</p>
+          </div>
+        </div>
+      `;
+    }
+    
     return `
       <div class="empty-state">
         <div class="empty-state-content">
           <div class="empty-state-icon">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <rect x="8" y="12" width="32" height="24" rx="4" stroke="#9CA3AF" stroke-width="2" fill="none"/>
-              <path d="M16 20h16M16 24h12M16 28h8" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/>
+              <rect x="8" y="12" width="32" height="24" rx="4" stroke="var(--figma-color-icon-secondary)" stroke-width="2" fill="none"/>
+              <path d="M16 20h16M16 24h12M16 28h8" stroke="var(--figma-color-icon-secondary)" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
           
-          <h3>Ready to sync your design tokens</h3>
-          <p>
-            Import your Figma variables to sync them with your Fragmento project. 
-            Variables will be organized by collections and can be pushed to your web app.
-          </p>
-
-          <div class="empty-state-actions">
-            <button class="primary-button" id="import-btn">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1v10M4 7l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Import Variables
-            </button>
-          </div>
-
-          <div class="empty-state-info">
-            <h4>How it works:</h4>
-            <ol>
-              <li>Import variables from your current Figma file</li>
-              <li>Review variables organized by collections</li>
-              <li>Push selected variables to your Fragmento project</li>
-              <li>Variables appear in Pending Changes for release creation</li>
-            </ol>
-          </div>
+          <h3>Select a project</h3>
+          <p>Choose a project to start syncing your Figma variables with your design token system.</p>
         </div>
       </div>
     `;
   }
 
   showVariablesView() {
-    const container = document.getElementById('react-page');
+    const container = document.getElementById('app');
     container.innerHTML = `
       <div class="variables-view">
         <div class="variables-header">
@@ -384,6 +485,16 @@ class FragmentoPlugin {
       authBtn.onclick = () => this.postMessage({ type: 'authenticate' });
     }
 
+    // Retry button
+    const retryBtn = document.getElementById('retry-btn');
+    if (retryBtn) {
+      retryBtn.onclick = () => {
+        this.state.error = null;
+        this.render();
+        this.postMessage({ type: 'authenticate' });
+      };
+    }
+
     // Logout button
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
@@ -399,7 +510,14 @@ class FragmentoPlugin {
           this.state.selectedOrganization = org;
           this.state.selectedProject = null;
           this.state.projects = [];
+          this.state.isLoadingProjects = true;
           this.render();
+          
+          // Store selection persistently
+          this.postMessage({ 
+            type: 'store-organization', 
+            payload: { organization: org } 
+          });
           
           if (this.state.authToken) {
             this.postMessage({ 
@@ -410,6 +528,16 @@ class FragmentoPlugin {
               } 
             });
           }
+        } else {
+          // Clear selection
+          this.state.selectedOrganization = null;
+          this.state.selectedProject = null;
+          this.state.projects = [];
+          this.render();
+          
+          this.postMessage({ 
+            type: 'clear-organization'
+          });
         }
       };
     }
@@ -422,6 +550,45 @@ class FragmentoPlugin {
         if (project) {
           this.state.selectedProject = project;
           this.render();
+          
+          // Store selection persistently
+          this.postMessage({ 
+            type: 'store-project', 
+            payload: { project: project } 
+          });
+        } else {
+          // Clear selection
+          this.state.selectedProject = null;
+          this.render();
+          
+          this.postMessage({ 
+            type: 'clear-project'
+          });
+        }
+      };
+    }
+
+    // Error retry button
+    const errorRetryBtn = document.getElementById('error-retry-btn');
+    if (errorRetryBtn) {
+      errorRetryBtn.onclick = () => {
+        this.state.error = null;
+        this.render();
+        
+        // Retry the last failed operation
+        if (this.state.authToken && this.state.organizations.length === 0) {
+          this.postMessage({ 
+            type: 'fetch-organizations', 
+            payload: { authToken: this.state.authToken } 
+          });
+        } else if (this.state.selectedOrganization && this.state.projects.length === 0) {
+          this.postMessage({ 
+            type: 'fetch-projects', 
+            payload: { 
+              authToken: this.state.authToken, 
+              organizationId: this.state.selectedOrganization.id 
+            } 
+          });
         }
       };
     }

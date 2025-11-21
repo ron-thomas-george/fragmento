@@ -61,11 +61,18 @@ export interface AppState {
 }
 
 export type MessageType = 
+  | 'get-auth-status'
   | 'authenticate'
   | 'get-variables'
   | 'push-variables'
   | 'fetch-organizations'
   | 'fetch-projects'
+  | 'organizations-loaded'
+  | 'projects-loaded'
+  | 'store-organization'
+  | 'store-project'
+  | 'clear-organization'
+  | 'clear-project'
   | 'set-auth-token'
   | 'logout';
 

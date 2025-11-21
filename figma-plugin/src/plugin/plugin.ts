@@ -16,6 +16,7 @@ const SELECTED_PROJECT_KEY = 'fragmento_selected_project';
 
 // Initialize plugin
 async function init() {
+  console.log('Fragmento plugin initializing...');
   try {
     // Check for existing auth token
     const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
@@ -25,24 +26,37 @@ async function init() {
       
       // Check if token is expired
       if (authToken.expiresAt > Date.now()) {
-        // Token is valid, send to UI
-        figma.ui.postMessage({
-          type: 'auth-status',
-          payload: { isAuthenticated: true, authToken }
-        });
-        
-        // Load saved organization and project
-        const savedOrg = await figma.clientStorage.getAsync(SELECTED_ORG_KEY);
-        const savedProject = await figma.clientStorage.getAsync(SELECTED_PROJECT_KEY);
-        
-        if (savedOrg && savedProject) {
-          figma.ui.postMessage({
-            type: 'restore-selection',
-            payload: {
-              organization: JSON.parse(savedOrg),
-              project: JSON.parse(savedProject)
+        // Token is valid, fetch user info and send to UI
+        try {
+          const userResponse = await fetch('https://fragmento-theta.vercel.app/api/user', {
+            headers: {
+              'Authorization': `Bearer ${authToken.token}`
             }
           });
+          
+          if (userResponse.ok) {
+            const userInfo = await userResponse.json();
+            
+            figma.ui.postMessage({
+              type: 'auth-status',
+              payload: { isAuthenticated: true, authToken, userInfo }
+            });
+            
+            // Automatically fetch organizations
+            await handleFetchOrganizations(authToken);
+          } else {
+            throw new Error('Failed to fetch user info');
+          }
+        } catch (userError) {
+          console.error('Error fetching user info during init:', userError);
+          // Send auth status without user info
+          figma.ui.postMessage({
+            type: 'auth-status',
+            payload: { isAuthenticated: true, authToken, userInfo: null }
+          });
+          
+          // Still fetch organizations
+          await handleFetchOrganizations(authToken);
         }
       } else {
         // Token expired, clear storage
@@ -54,6 +68,7 @@ async function init() {
       }
     } else {
       // No token found
+      console.log('No auth token found, sending unauthenticated status');
       figma.ui.postMessage({
         type: 'auth-status',
         payload: { isAuthenticated: false, authToken: null }
@@ -71,7 +86,12 @@ async function init() {
 // Handle messages from UI
 figma.ui.onmessage = async (msg: PluginMessage) => {
   try {
+    console.log('Plugin received message:', msg.type);
     switch (msg.type) {
+      case 'get-auth-status':
+        await init(); // Re-run initialization to send current auth status
+        break;
+        
       case 'authenticate':
         await handleAuthentication();
         break;
@@ -94,6 +114,23 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         
       case 'fetch-projects':
         await handleFetchProjects(msg.payload.authToken, msg.payload.organizationId);
+        break;
+        
+      case 'store-organization':
+        await figma.clientStorage.setAsync(SELECTED_ORG_KEY, JSON.stringify(msg.payload.organization));
+        break;
+        
+      case 'store-project':
+        await figma.clientStorage.setAsync(SELECTED_PROJECT_KEY, JSON.stringify(msg.payload.project));
+        break;
+        
+      case 'clear-organization':
+        await figma.clientStorage.deleteAsync(SELECTED_ORG_KEY);
+        await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
+        break;
+        
+      case 'clear-project':
+        await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
         break;
         
       case 'logout':
@@ -120,7 +157,7 @@ async function handleAuthentication() {
   await figma.clientStorage.setAsync('auth_state', state);
   
   // Open browser for authentication
-  const authUrl = `https://fragmento.app/auth/figma?state=${state}`;
+  const authUrl = `https://fragmento-theta.vercel.app/auth/figma?state=${state}`;
   figma.openExternal(authUrl);
   
   figma.ui.postMessage({
@@ -137,13 +174,45 @@ async function handleSetAuthToken(payload: { token: string; userId: string; expi
       expiresAt: Date.now() + (payload.expiresIn * 1000)
     };
     
-    // Store token securely
+    // Store the token
     await figma.clientStorage.setAsync(AUTH_TOKEN_KEY, JSON.stringify(authToken));
     
-    figma.ui.postMessage({
-      type: 'auth-success',
-      payload: { authToken }
-    });
+    console.log('Authentication token stored successfully');
+    
+    // Fetch user info and send success message to UI
+    try {
+      const userResponse = await fetch('https://fragmento-theta.vercel.app/api/user', {
+        headers: {
+          'Authorization': `Bearer ${authToken.token}`
+        }
+      });
+      
+      if (userResponse.ok) {
+        const userInfo = await userResponse.json();
+        
+        // Send success message with user info to UI
+        figma.ui.postMessage({
+          type: 'auth-success',
+          payload: { authToken, userInfo }
+        });
+        
+        // Automatically fetch organizations
+        await handleFetchOrganizations(authToken);
+      } else {
+        throw new Error('Failed to fetch user info');
+      }
+    } catch (userError) {
+      console.error('Error fetching user info:', userError);
+      // Send success without user info, UI will handle gracefully
+      figma.ui.postMessage({
+        type: 'auth-success',
+        payload: { authToken, userInfo: null }
+      });
+      
+      // Still fetch organizations
+      await handleFetchOrganizations(authToken);
+    }
+    
   } catch (error) {
     console.error('Error setting auth token:', error);
     figma.ui.postMessage({
@@ -152,6 +221,10 @@ async function handleSetAuthToken(payload: { token: string; userId: string; expi
     });
   }
 }
+
+// Note: Custom URL scheme handling will be done by the browser redirect
+// The web app will redirect to figma://auth-callback which Figma will handle
+// and pass the parameters to the plugin through the normal message system
 
 async function handleGetVariables() {
   try {
@@ -210,7 +283,7 @@ async function handlePushVariables(payload: { collections: FigmaCollection[]; au
     }));
     
     // Send to Fragmento API
-    const response = await fetch('https://api.fragmento.app/api/figma/push-tokens', {
+    const response = await fetch('https://fragmento-theta.vercel.app/api/figma/push-tokens', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -243,7 +316,7 @@ async function handlePushVariables(payload: { collections: FigmaCollection[]; au
 
 async function handleFetchOrganizations(authToken: AuthToken) {
   try {
-    const response = await fetch('https://api.fragmento.app/api/organizations', {
+    const response = await fetch('https://fragmento-theta.vercel.app/api/organizations', {
       headers: {
         'Authorization': `Bearer ${authToken.token}`
       }
@@ -259,6 +332,26 @@ async function handleFetchOrganizations(authToken: AuthToken) {
       type: 'organizations-loaded',
       payload: { organizations }
     });
+
+    // Auto-select if only one organization or restore previous selection
+    if (organizations.length === 1) {
+      const org = organizations[0];
+      await figma.clientStorage.setAsync(SELECTED_ORG_KEY, JSON.stringify(org));
+      
+      // Fetch projects for the auto-selected organization
+      await handleFetchProjects(authToken, org.id);
+    } else if (organizations.length > 1) {
+      // Try to restore previous selection
+      const savedOrg = await figma.clientStorage.getAsync(SELECTED_ORG_KEY);
+      if (savedOrg) {
+        const org = JSON.parse(savedOrg);
+        const foundOrg = organizations.find((o: any) => o.id === org.id);
+        if (foundOrg) {
+          // Fetch projects for the restored organization
+          await handleFetchProjects(authToken, foundOrg.id);
+        }
+      }
+    }
   } catch (error) {
     console.error('Error fetching organizations:', error);
     figma.ui.postMessage({
@@ -270,7 +363,7 @@ async function handleFetchOrganizations(authToken: AuthToken) {
 
 async function handleFetchProjects(authToken: AuthToken, organizationId: string) {
   try {
-    const response = await fetch(`https://api.fragmento.app/api/organizations/${organizationId}/projects`, {
+    const response = await fetch(`https://fragmento-theta.vercel.app/api/organizations/${organizationId}/projects`, {
       headers: {
         'Authorization': `Bearer ${authToken.token}`
       }
@@ -286,6 +379,20 @@ async function handleFetchProjects(authToken: AuthToken, organizationId: string)
       type: 'projects-loaded',
       payload: { projects }
     });
+
+    // Try to restore previous project selection
+    const savedProject = await figma.clientStorage.getAsync(SELECTED_PROJECT_KEY);
+    if (savedProject) {
+      const project = JSON.parse(savedProject);
+      const foundProject = projects.find((p: any) => p.id === project.id);
+      if (foundProject) {
+        // Project is still valid, keep the selection
+        await figma.clientStorage.setAsync(SELECTED_PROJECT_KEY, JSON.stringify(foundProject));
+      } else {
+        // Project no longer exists, clear the selection
+        await figma.clientStorage.deleteAsync(SELECTED_PROJECT_KEY);
+      }
+    }
   } catch (error) {
     console.error('Error fetching projects:', error);
     figma.ui.postMessage({
@@ -345,5 +452,7 @@ function getTokenValue(valuesByMode: { [modeId: string]: VariableValue }, resolv
   return String(value);
 }
 
-// Initialize the plugin
-init();
+// Initialize the plugin with a small delay to ensure UI is ready
+setTimeout(() => {
+  init();
+}, 100);
