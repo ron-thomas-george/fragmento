@@ -51,10 +51,12 @@ class FragmentoPlugin {
     
     switch (message.type) {
       case 'auth-status':
+        console.log('Received auth-status:', message.payload);
         this.state.isAuthenticated = message.payload.isAuthenticated;
         this.state.authToken = message.payload.authToken;
         this.state.userInfo = message.payload.userInfo;
         this.state.isLoading = false;
+        console.log('Updated state - isAuthenticated:', this.state.isAuthenticated);
         this.render();
         break;
 
@@ -218,7 +220,11 @@ class FragmentoPlugin {
           </button>
           
           <button class="secondary-button" id="test-token-btn" style="margin-top: 8px;">
-            Test Stored Token
+            Check Auth Status
+          </button>
+          
+          <button class="secondary-button" id="debug-btn" style="margin-top: 8px;">
+            Debug Info
           </button>
 
           <div class="auth-description">
@@ -540,6 +546,22 @@ class FragmentoPlugin {
     const testTokenBtn = document.getElementById('test-token-btn');
     if (testTokenBtn) {
       testTokenBtn.onclick = () => this.postMessage({ type: 'get-auth-status' });
+    }
+
+    // Debug button
+    const debugBtn = document.getElementById('debug-btn');
+    if (debugBtn) {
+      debugBtn.onclick = () => {
+        console.log('=== PLUGIN DEBUG INFO ===');
+        console.log('State:', this.state);
+        console.log('Is Authenticated:', this.state.isAuthenticated);
+        console.log('Auth Token:', this.state.authToken);
+        console.log('User Info:', this.state.userInfo);
+        console.log('Organizations:', this.state.organizations);
+        console.log('Projects:', this.state.projects);
+        console.log('========================');
+        alert('Debug info logged to console. Check Developer Console.');
+      };
     }
 
     // Retry button

@@ -33,23 +33,28 @@ export default function FigmaAuthorizePage() {
   }, []);
 
   const checkAuthStatus = async () => {
+    console.log('Checking auth status...');
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
+        console.error('Auth check error:', error);
         setError('Failed to check authentication status');
         return;
       }
 
       if (!user) {
+        console.log('No user found, redirecting to signin');
         // Redirect to sign in with return URL
         const returnUrl = `/auth/figma/authorize?state=${state}`;
         router.push(`/signin?redirect=${encodeURIComponent(returnUrl)}`);
         return;
       }
 
+      console.log('User found:', user.email);
       setUser(user as User);
     } catch (err) {
+      console.error('Auth check failed:', err);
       setError('Authentication check failed');
     } finally {
       setLoading(false);
@@ -57,6 +62,7 @@ export default function FigmaAuthorizePage() {
   };
 
   const handleAuthorize = async () => {
+    console.log('handleAuthorize called', { user: user?.email, state });
     if (!user || !state) return;
 
     setAuthorizing(true);
@@ -97,8 +103,11 @@ export default function FigmaAuthorizePage() {
 
       setError(null);
       
-      // Show success message with instructions
-      alert('Authorization successful! Please return to Figma. The plugin should automatically detect the authorization.');
+      // Show success state instead of alert
+      setAuthorizing(false);
+      
+      // Redirect to success page or show success UI
+      router.push('/auth/figma/success');
       
     } catch (err) {
       setError('Authorization failed. Please try again.');
