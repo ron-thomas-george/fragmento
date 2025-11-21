@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ interface User {
   };
 }
 
-export default function FigmaAuthorizePage() {
+function FigmaAuthorizeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -264,5 +264,20 @@ export default function FigmaAuthorizePage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function FigmaAuthorizePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading authorization...</p>
+        </div>
+      </div>
+    }>
+      <FigmaAuthorizeContent />
+    </Suspense>
   );
 }
