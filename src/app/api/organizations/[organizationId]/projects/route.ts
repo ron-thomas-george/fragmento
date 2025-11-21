@@ -4,9 +4,12 @@ import jwt from 'jsonwebtoken';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { organizationId: string } }
+  { params }: { params: Promise<{ organizationId: string }> }
 ) {
   try {
+    // Await the params since they're now async in Next.js 15+
+    const { organizationId } = await params;
+    
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -33,7 +36,7 @@ export async function GET(
     const { data: orgAccess, error: orgError } = await supabase
       .from('organizations')
       .select('id')
-      .eq('id', params.organizationId)
+      .eq('id', organizationId)
       .eq('owner_id', decoded.userId)
       .single();
 
@@ -45,7 +48,7 @@ export async function GET(
     const { data: projects, error } = await supabase
       .from('projects')
       .select('id, name, organization_id')
-      .eq('organization_id', params.organizationId);
+      .eq('organization_id', organizationId);
 
     if (error) {
       console.error('Error fetching projects:', error);
