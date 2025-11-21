@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     
     // Fetch organizations for the user
+    console.log('Fetching organizations for user:', decoded.userId);
     const { data: organizations, error } = await supabase
       .from('organizations')
       .select('id, name, slug')
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(organizations, { headers: corsHeaders });
+    console.log('Organizations found:', organizations?.length || 0);
+    return NextResponse.json(organizations || [], { headers: corsHeaders });
     
   } catch (error) {
     console.error('API error:', error);
