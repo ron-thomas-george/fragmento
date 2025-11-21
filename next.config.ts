@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable other experimental features if needed
   },
+  typescript: {
+    // Ignore TypeScript errors during build (temporary)
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;

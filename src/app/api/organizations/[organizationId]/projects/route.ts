@@ -4,11 +4,11 @@ import jwt from 'jsonwebtoken';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ organizationId: string }> }
+  context: { params: Promise<{ organizationId: string }> }
 ) {
   try {
     // Await the params since they're now async in Next.js 15+
-    const { organizationId } = await params;
+    const { organizationId } = await context.params;
     
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
