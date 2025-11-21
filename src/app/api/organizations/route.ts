@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     try {
       const result = await supabase
         .from('organizations')
-        .select('id, name, slug')
+        .select('id, name, owner_id, created_at')
         .eq('owner_id', decoded.userId);
       
       organizations = result.data;
