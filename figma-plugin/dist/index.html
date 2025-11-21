@@ -109,8 +109,383 @@
     window.clearFallbackTimeout = () => {
       clearTimeout(fallbackTimeout);
     };
+
+    // Inline JavaScript to avoid file loading issues
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, initializing inline JavaScript...');
+      
+      // Clear the fallback timeout
+      if (window.clearFallbackTimeout) {
+        window.clearFallbackTimeout();
+      }
+      
+      const app = document.getElementById('app');
+      if (app) {
+        console.log('App container found, rendering UI...');
+        app.innerHTML = `
+          <div style="padding: 20px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
+            <div style="margin-bottom: 24px;">
+              <h1 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 4px 0;">Fragmento</h1>
+              <p style="color: #666; font-size: 12px; margin: 0;">Design Tokens for shadcn/ui</p>
+            </div>
+            
+            <div style="margin-bottom: 32px;">
+              <div style="font-size: 24px; margin-bottom: 16px;">✨</div>
+              <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 500; margin: 0 0 12px 0;">Welcome!</h2>
+              <p style="color: #666; font-size: 13px; line-height: 1.4; margin: 0 0 24px 0;">
+                Connect your Fragmento account<br>
+                to sync design tokens between<br>
+                Figma and your codebase.
+              </p>
+            </div>
+            
+            <button onclick="authenticateWithFragmento()" style="
+              width: 100%; 
+              padding: 12px 24px; 
+              margin-bottom: 16px; 
+              background: #18a0fb; 
+              color: white; 
+              border: none; 
+              border-radius: 6px; 
+              cursor: pointer; 
+              font-weight: 500; 
+              font-size: 14px;
+              transition: background-color 0.2s;
+            " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
+              Authenticate with Fragmento
+            </button>
+            
+            <div style="margin-top: 16px;">
+              <p style="color: #999; font-size: 12px; margin: 0 0 8px 0;">Don't have an account?</p>
+              <a href="https://fragmento-theta.vercel.app/signup" target="_blank" style="color: #18a0fb; text-decoration: none; font-size: 12px;">Sign up on fragmento.app</a>
+            </div>
+            
+            <div id="output" style="margin-top: 24px; padding: 12px; background: #f8f9fa; border-radius: 6px; text-align: left; font-size: 12px; min-height: 60px; display: none;"></div>
+          </div>
+        `;
+        console.log('UI rendered successfully');
+      } else {
+        console.error('App container not found');
+      }
+    });
+
+    function authenticateWithFragmento() {
+      console.log('Authenticate with Fragmento clicked');
+      const output = document.getElementById('output');
+      if (output) {
+        output.style.display = 'block';
+        output.innerHTML = 'Opening browser for authentication...';
+      }
+      
+      try {
+        if (parent && parent.postMessage) {
+          parent.postMessage({ pluginMessage: { type: 'authenticate' } }, '*');
+          console.log('Authentication message sent to plugin');
+        } else {
+          if (output) {
+            output.innerHTML = '❌ Error: Cannot communicate with plugin';
+          }
+        }
+      } catch (error) {
+        console.error('Error sending authentication message:', error);
+        if (output) {
+          output.innerHTML = '❌ Error: ' + error.message;
+        }
+      }
+    }
+
+    function showOrganizationSelector(organizations, userInfo) {
+      const app = document.getElementById('app');
+      if (!app) return;
+      
+      app.innerHTML = `
+        <div style="padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e5e5;">
+            <h1 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">Fragmento</h1>
+            <button onclick="showSettings()" style="background: none; border: none; cursor: pointer; font-size: 16px;">⚙️</button>
+          </div>
+          
+          <div style="margin-bottom: 24px;">
+            <h2 style="color: #1a1a1a; font-size: 14px; font-weight: 500; margin: 0 0 16px 0;">Select Project</h2>
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <label style="display: block; color: #666; font-size: 12px; font-weight: 500; margin-bottom: 6px;">Organization</label>
+            <select id="organizationSelect" onchange="onOrganizationChange()" style="
+              width: 100%; 
+              padding: 8px 12px; 
+              border: 1px solid #d1d5db; 
+              border-radius: 6px; 
+              font-size: 13px; 
+              background: white;
+              cursor: pointer;
+            ">
+              <option value="">Select organization...</option>
+              ${organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('')}
+            </select>
+          </div>
+          
+          <div style="margin-bottom: 24px;">
+            <label style="display: block; color: #666; font-size: 12px; font-weight: 500; margin-bottom: 6px;">Project</label>
+            <select id="projectSelect" onchange="onProjectChange()" disabled style="
+              width: 100%; 
+              padding: 8px 12px; 
+              border: 1px solid #d1d5db; 
+              border-radius: 6px; 
+              font-size: 13px; 
+              background: #f9fafb;
+              cursor: not-allowed;
+            ">
+              <option value="">Select organization first...</option>
+            </select>
+            <div id="projectInfo" style="margin-top: 8px; font-size: 11px; color: #666; display: none;"></div>
+          </div>
+          
+          <div id="projectDetails" style="margin-bottom: 24px; display: none;">
+            <div style="background: #f8f9fa; border-radius: 6px; padding: 12px;">
+              <div id="projectDescription" style="color: #666; font-size: 12px; margin-bottom: 8px;"></div>
+              <div id="projectStats" style="color: #666; font-size: 11px;"></div>
+            </div>
+          </div>
+          
+          <button id="loadProjectBtn" onclick="loadProject()" disabled style="
+            width: 100%; 
+            padding: 12px 24px; 
+            background: #d1d5db; 
+            color: #9ca3af; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: not-allowed; 
+            font-weight: 500; 
+            font-size: 14px;
+          ">
+            Load Project
+          </button>
+          
+          <div id="output" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; text-align: left; font-size: 12px; display: none;"></div>
+        </div>
+      `;
+    }
+
+    async function handleTokenPolling(state, attempt) {
+      try {
+        console.log('UI polling attempt', attempt, 'for state:', state);
+        console.log('Making request to: https://fragmento-theta.vercel.app/api/figma/poll-token?state=' + state);
+        
+        const response = await fetch('https://fragmento-theta.vercel.app/api/figma/poll-token?state=' + state);
+        console.log('Polling response:', response.status, response.statusText);
+        
+        const output = document.getElementById('output');
+        
+        if (response.ok) {
+          const tokenData = await response.json();
+          console.log('Token found via UI polling!', { hasToken: !!tokenData.token, userId: tokenData.userId?.substring(0, 8) + '...' });
+          
+          if (output) {
+            output.innerHTML = '✅ Token found! Sending to plugin...';
+          }
+          
+          // Send token back to plugin
+          if (parent && parent.postMessage) {
+            parent.postMessage({
+              pluginMessage: {
+                type: 'token-found',
+                payload: {
+                  token: tokenData.token,
+                  userId: tokenData.userId,
+                  expiresIn: tokenData.expiresIn
+                }
+              }
+            }, '*');
+          }
+        } else if (response.status === 404) {
+          console.log('Token not ready (404), continuing to poll...');
+          if (output) {
+            output.innerHTML = '⏳ Token not ready yet (404). Try again in a few seconds.';
+          }
+        } else {
+          console.error('Token polling failed with status:', response.status);
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          if (output) {
+            output.innerHTML = '❌ Polling failed: ' + response.status + ' - ' + errorText;
+          }
+        }
+      } catch (error) {
+        console.error('UI token polling error:', error);
+        const output = document.getElementById('output');
+        if (output) {
+          output.innerHTML = '❌ Network error: ' + error.message;
+        }
+      }
+    }
+
+    // Listen for messages from plugin
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.pluginMessage) {
+        const msg = event.data.pluginMessage;
+        console.log('UI received message from plugin:', msg.type);
+        
+        const output = document.getElementById('output');
+        
+        if (msg.type === 'pong') {
+          if (output) {
+            output.innerHTML = '✅ Plugin connection successful!<br>📩 Received: ' + msg.payload.message;
+          }
+        } else if (msg.type === 'auth-initiated') {
+          if (output) {
+            output.innerHTML += '<br>🌐 Browser opened for authentication';
+          }
+        } else if (msg.type === 'auth-success') {
+          console.log('Authentication successful, waiting for organizations...');
+          const output = document.getElementById('output');
+          if (output) {
+            output.style.display = 'block';
+            output.innerHTML = 'Authentication successful! Loading organizations...';
+          }
+        } else if (msg.type === 'auth-error') {
+          const output = document.getElementById('output');
+          if (output) {
+            output.style.display = 'block';
+            output.innerHTML = '❌ Authentication failed: ' + msg.payload.message;
+          }
+        } else if (msg.type === 'poll-token') {
+          // Handle automatic token polling from plugin
+          console.log('Received poll-token request from plugin:', msg.payload);
+          handleTokenPolling(msg.payload.state, msg.payload.attempt);
+        } else if (msg.type === 'organizations-loaded') {
+          // Show organization selector interface
+          console.log('Organizations loaded:', msg.payload.organizations);
+          showOrganizationSelector(msg.payload.organizations, msg.payload.userInfo);
+        } else if (msg.type === 'projects-loaded') {
+          // Handle projects data from plugin
+          console.log('Projects loaded:', msg.payload.projects);
+          projects = msg.payload.projects;
+          
+          const projectSelect = document.getElementById('projectSelect');
+          if (projectSelect) {
+            projectSelect.innerHTML = '<option value="">Select project...</option>';
+            projects.forEach(project => {
+              projectSelect.innerHTML += `<option value="${project.id}">${project.name}</option>`;
+            });
+          }
+        }
+      }
+    });
+
+    // Organization and Project selector functions
+    let selectedOrganization = null;
+    let selectedProject = null;
+    let projects = [];
+
+    function onOrganizationChange() {
+      const select = document.getElementById('organizationSelect');
+      const projectSelect = document.getElementById('projectSelect');
+      const loadBtn = document.getElementById('loadProjectBtn');
+      
+      if (select.value) {
+        selectedOrganization = select.value;
+        
+        // Enable project dropdown and fetch projects
+        projectSelect.disabled = false;
+        projectSelect.style.background = 'white';
+        projectSelect.style.cursor = 'pointer';
+        projectSelect.innerHTML = '<option value="">Loading projects...</option>';
+        
+        // Request projects from plugin
+        if (parent && parent.postMessage) {
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'fetch-projects', 
+              payload: { organizationId: selectedOrganization } 
+            } 
+          }, '*');
+        }
+      } else {
+        selectedOrganization = null;
+        projectSelect.disabled = true;
+        projectSelect.style.background = '#f9fafb';
+        projectSelect.style.cursor = 'not-allowed';
+        projectSelect.innerHTML = '<option value="">Select organization first...</option>';
+        
+        loadBtn.disabled = true;
+        loadBtn.style.background = '#d1d5db';
+        loadBtn.style.color = '#9ca3af';
+        loadBtn.style.cursor = 'not-allowed';
+      }
+    }
+
+    function onProjectChange() {
+      const select = document.getElementById('projectSelect');
+      const loadBtn = document.getElementById('loadProjectBtn');
+      const projectInfo = document.getElementById('projectInfo');
+      const projectDetails = document.getElementById('projectDetails');
+      
+      if (select.value) {
+        selectedProject = select.value;
+        const project = projects.find(p => p.id === selectedProject);
+        
+        if (project) {
+          // Show project info
+          projectInfo.style.display = 'block';
+          projectInfo.innerHTML = `(${project.access_level || 'Can Edit'})`;
+          
+          // Show project details
+          projectDetails.style.display = 'block';
+          document.getElementById('projectDescription').innerHTML = project.description || 'No description available';
+          document.getElementById('projectStats').innerHTML = `
+            • ${project.token_count || 0} tokens across ${project.token_sets || 0} sets<br>
+            • Last release: ${project.latest_version || 'None'}<br>
+            • ${project.pending_changes || 0} pending changes
+          `;
+        }
+        
+        // Enable load button
+        loadBtn.disabled = false;
+        loadBtn.style.background = '#18a0fb';
+        loadBtn.style.color = 'white';
+        loadBtn.style.cursor = 'pointer';
+      } else {
+        selectedProject = null;
+        projectInfo.style.display = 'none';
+        projectDetails.style.display = 'none';
+        
+        loadBtn.disabled = true;
+        loadBtn.style.background = '#d1d5db';
+        loadBtn.style.color = '#9ca3af';
+        loadBtn.style.cursor = 'not-allowed';
+      }
+    }
+
+    function loadProject() {
+      if (selectedOrganization && selectedProject) {
+        const output = document.getElementById('output');
+        if (output) {
+          output.style.display = 'block';
+          output.innerHTML = 'Loading project...';
+        }
+        
+        // Send selection to plugin
+        if (parent && parent.postMessage) {
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'load-project', 
+              payload: { 
+                organizationId: selectedOrganization,
+                projectId: selectedProject
+              } 
+            } 
+          }, '*');
+        }
+      }
+    }
+
+    function showSettings() {
+      // TODO: Implement settings modal
+      console.log('Settings clicked');
+    }
+
+    console.log('Inline JavaScript setup complete');
   </script>
-  
-  <script src="vanilla.js"></script>
 </body>
 </html>

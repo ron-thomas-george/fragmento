@@ -150,7 +150,17 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         break;
         
       case 'fetch-projects':
-        await handleFetchProjects(msg.payload.authToken, msg.payload.organizationId);
+        const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
+        if (storedToken) {
+          const authToken = JSON.parse(storedToken);
+          await handleFetchProjects(authToken, msg.payload.organizationId);
+        } else {
+          console.error('No auth token found for fetch-projects');
+          figma.ui.postMessage({
+            type: 'auth-error',
+            payload: { message: 'Authentication required' }
+          });
+        }
         break;
         
       case 'store-organization':
@@ -421,18 +431,11 @@ async function handleFetchOrganizations(authToken: AuthToken) {
   try {
     console.log('Fetching organizations...');
     
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
     const response = await fetch('https://fragmento-theta.vercel.app/api/organizations', {
       headers: {
         'Authorization': `Bearer ${authToken.token}`
-      },
-      signal: controller.signal
+      }
     });
-    
-    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch organizations: ${response.statusText}`);

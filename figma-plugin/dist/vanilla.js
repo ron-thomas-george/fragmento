@@ -1,28 +1,60 @@
 // Vanilla JavaScript implementation for Figma plugin UI
 console.log('Fragmento plugin UI loaded');
 
-// Signal that JavaScript loaded successfully
-if (window.jsLoaded) {
-  window.jsLoaded();
+// Signal that JavaScript has loaded successfully
+console.log('Fragmento plugin UI loaded');
+
+// Clear the fallback timeout
+if (window.clearFallbackTimeout) {
+  window.clearFallbackTimeout();
 }
 
 class FragmentoPlugin {
   constructor() {
-    this.state = {
-      isAuthenticated: false,
-      authToken: null,
-      userInfo: null,
-      selectedOrganization: null,
-      selectedProject: null,
-      organizations: [],
-      projects: [],
-      collections: [],
-      isLoading: true,
-      isLoadingProjects: false,
-      error: null
-    };
-    
-    this.init();
+    try {
+      this.state = {
+        isAuthenticated: false,
+        authToken: null,
+        userInfo: null,
+        selectedOrganization: null,
+        selectedProject: null,
+        organizations: [],
+        projects: [],
+        collections: [],
+        isLoading: true,
+        isLoadingProjects: false,
+        error: null
+      };
+
+      console.log('FragmentoPlugin UI initializing...');
+      
+      // Listen for messages from plugin
+      window.onmessage = (event) => {
+        try {
+          if (event.data && event.data.pluginMessage) {
+            this.handlePluginMessage(event.data.pluginMessage);
+          }
+        } catch (error) {
+          console.error('Error handling plugin message:', error);
+        }
+      };
+
+      // Request initial auth status from plugin
+      setTimeout(() => {
+        try {
+          console.log('UI requesting initial auth status...');
+          this.postMessage({ type: 'get-auth-status' });
+        } catch (error) {
+          console.error('Error requesting auth status:', error);
+        }
+      }, 500);
+      
+      // Initial render
+      this.render();
+    } catch (error) {
+      console.error('Error initializing plugin:', error);
+      document.getElementById('app').innerHTML = '<div style="padding: 20px; color: red;">Plugin initialization failed: ' + error.message + '</div>';
+    }
   }
 
   init() {
@@ -168,17 +200,29 @@ class FragmentoPlugin {
   }
 
   render() {
-    const container = document.getElementById('app');
-    
-    if (this.state.isLoading) {
-      container.innerHTML = this.renderLoading();
-    } else if (!this.state.isAuthenticated) {
-      container.innerHTML = this.renderAuthScreen();
-    } else {
-      container.innerHTML = this.renderMainScreen();
+    try {
+      const container = document.getElementById('app');
+      if (!container) {
+        console.error('App container not found');
+        return;
+      }
+      
+      if (this.state.isLoading) {
+        container.innerHTML = this.renderLoading();
+      } else if (!this.state.isAuthenticated) {
+        container.innerHTML = this.renderAuthScreen();
+      } else {
+        container.innerHTML = this.renderMainScreen();
+      }
+      
+      this.attachEventListeners();
+    } catch (error) {
+      console.error('Error rendering plugin:', error);
+      const container = document.getElementById('app');
+      if (container) {
+        container.innerHTML = '<div style="padding: 20px; color: red;">Render error: ' + error.message + '</div>';
+      }
     }
-    
-    this.attachEventListeners();
   }
 
   renderLoading() {
@@ -741,5 +785,12 @@ class FragmentoPlugin {
   }
 }
 
-// Initialize the plugin
-new FragmentoPlugin();
+// Initialize the plugin with error handling
+try {
+  console.log('Starting plugin initialization...');
+  const plugin = new FragmentoPlugin();
+  console.log('Plugin initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize plugin:', error);
+  document.getElementById('app').innerHTML = '<div style="padding: 20px; color: red; text-align: center;"><h3>Plugin Failed to Load</h3><p>Error: ' + error.message + '</p><p>Please check the console for more details.</p></div>';
+}

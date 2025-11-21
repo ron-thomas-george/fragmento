@@ -1,6 +1,6 @@
 {
   "name": "Fragmento",
-  "id": "fragmento-design-tokens-v2",
+  "id": "fragmento-design-tokens",
   "api": "1.0.0",
   "main": "dist/plugin.js",
   "ui": "dist/index.html",
