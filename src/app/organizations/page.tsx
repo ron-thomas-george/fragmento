@@ -21,11 +21,8 @@ const avatarColors = [
   "#fcd34d",
 ];
 
-const getAvatarColor = (name: string) => {
-  if (!name) return avatarColors[0];
-  const sum = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return avatarColors[sum % avatarColors.length];
-};
+const getAvatarColor = (index: number) =>
+  avatarColors[index % avatarColors.length];
 
 const formatRelativeTime = (dateString: string | null) => {
   if (!dateString) return "Edited just now";
@@ -125,19 +122,19 @@ export default function OrganizationsPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {organizations.map((org) => (
+            {organizations.map((org, index) => (
               <button
                 key={org.id}
                 type="button"
                 onClick={() =>
                   router.push(`/organizations/${org.id}/projects`)
                 }
-                className="group flex flex-col rounded-2xl border border-border/70 bg-card/70 text-left shadow-sm transition-colors hover:border-primary/60"
+                className="group flex flex-col rounded-2xl border border-border/70 bg-card/70 text-left transition-colors hover:border-primary/60"
               >
                 <div
                   className="h-32 w-full rounded-t-2xl"
                   style={{
-                    backgroundColor: getAvatarColor(org.name),
+                    backgroundColor: getAvatarColor(index),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
