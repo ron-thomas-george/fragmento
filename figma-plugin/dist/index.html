@@ -491,10 +491,29 @@
           
           const projectSelect = document.getElementById('projectSelect');
           if (projectSelect) {
+            // Enable the project select
+            projectSelect.disabled = false;
+            projectSelect.style.background = '#2a2a2a';
+            projectSelect.style.color = 'white';
+            projectSelect.style.cursor = 'pointer';
+            
+            // Populate options
             projectSelect.innerHTML = '<option value="">Select project...</option>';
             projects.forEach(project => {
               projectSelect.innerHTML += `<option value="${project.id}">${project.name}</option>`;
             });
+            
+            // If there's a pre-selected project, select it and enable the load button
+            if (projects.length > 0) {
+              // Auto-select first project for better UX
+              projectSelect.value = projects[0].id;
+              selectedProject = projects[0].id;
+              
+              // Trigger onProjectChange to properly enable the button
+              setTimeout(() => {
+                onProjectChange();
+              }, 100);
+            }
           }
         } else if (msg.type === 'project-loaded') {
           // Show main interface after project is loaded
@@ -563,12 +582,16 @@
     }
 
     function onProjectChange() {
+      console.log('onProjectChange called');
       const select = document.getElementById('projectSelect');
       const loadBtn = document.getElementById('loadProjectBtn');
       const projectInfo = document.getElementById('projectInfo');
       const projectDetails = document.getElementById('projectDetails');
       
-      if (select.value) {
+      console.log('Selected project value:', select?.value);
+      console.log('Available projects:', projects);
+      
+      if (select && select.value) {
         selectedProject = select.value;
         const project = projects.find(p => p.id === selectedProject);
         
