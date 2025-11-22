@@ -123,44 +123,85 @@
       if (app) {
         console.log('App container found, rendering UI...');
         app.innerHTML = `
-          <div style="padding: 20px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
-            <div style="margin-bottom: 24px;">
-              <h1 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 4px 0;">Fragmento</h1>
-              <p style="color: #666; font-size: 12px; margin: 0;">Design Tokens for shadcn/ui</p>
+          <div style="
+            background: #1a1a1a; 
+            color: white; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            box-sizing: border-box;
+          ">
+            <div style="margin-bottom: 48px; text-align: center;">
+              <div style="
+                width: 80px; 
+                height: 80px; 
+                background: #333; 
+                border-radius: 20px; 
+                margin: 0 auto 24px; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+                border: 1px solid #444;
+              ">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h1 style="
+                color: white; 
+                font-size: 32px; 
+                font-weight: 700; 
+                margin: 0 0 8px 0;
+                letter-spacing: -0.5px;
+              ">Fragmento</h1>
+              <p style="color: #888; font-size: 16px; margin: 0;">Design token management made simple</p>
             </div>
             
-            <div style="margin-bottom: 32px;">
-              <div style="font-size: 24px; margin-bottom: 16px;">✨</div>
-              <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 500; margin: 0 0 12px 0;">Welcome!</h2>
-              <p style="color: #666; font-size: 13px; line-height: 1.4; margin: 0 0 24px 0;">
-                Connect your Fragmento account<br>
-                to sync design tokens between<br>
-                Figma and your codebase.
-              </p>
+            <div style="width: 100%; max-width: 320px;">
+              <button onclick="authenticateWithFragmento()" style="
+                width: 100%; 
+                padding: 16px 24px; 
+                background: #007AFF; 
+                color: white; 
+                border: none; 
+                border-radius: 12px; 
+                cursor: pointer; 
+                font-weight: 600; 
+                font-size: 16px;
+                margin-bottom: 12px;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+              " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
+                Sign in with Fragmento
+              </button>
+              
+              <button onclick="showSignUp()" style="
+                width: 100%; 
+                padding: 16px 24px; 
+                background: transparent; 
+                color: #888; 
+                border: 1px solid #333; 
+                border-radius: 12px; 
+                cursor: pointer; 
+                font-weight: 500; 
+                font-size: 16px;
+                transition: all 0.2s ease;
+              " onmouseover="this.style.borderColor='#555'; this.style.color='#aaa'" onmouseout="this.style.borderColor='#333'; this.style.color='#888'">
+                Sign up
+              </button>
             </div>
             
-            <button onclick="authenticateWithFragmento()" style="
-              width: 100%; 
-              padding: 12px 24px; 
-              margin-bottom: 16px; 
-              background: #18a0fb; 
-              color: white; 
-              border: none; 
-              border-radius: 6px; 
-              cursor: pointer; 
-              font-weight: 500; 
-              font-size: 14px;
-              transition: background-color 0.2s;
-            " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
-              Authenticate with Fragmento
-            </button>
+            <p style="color: #666; font-size: 12px; line-height: 1.4; text-align: center; margin-top: 32px; max-width: 280px;">
+              Connect your Figma variables to your design system with seamless token management.
+            </p>
             
-            <div style="margin-top: 16px;">
-              <p style="color: #999; font-size: 12px; margin: 0 0 8px 0;">Don't have an account?</p>
-              <a href="https://fragmento-theta.vercel.app/signup" target="_blank" style="color: #18a0fb; text-decoration: none; font-size: 12px;">Sign up on fragmento.app</a>
-            </div>
-            
-            <div id="output" style="margin-top: 24px; padding: 12px; background: #f8f9fa; border-radius: 6px; text-align: left; font-size: 12px; min-height: 60px; display: none;"></div>
+            <div id="output" style="margin-top: 24px; padding: 12px; background: #333; border-radius: 8px; text-align: left; font-size: 12px; min-height: 60px; display: none; color: #ccc; width: 100%; max-width: 320px;"></div>
           </div>
         `;
         console.log('UI rendered successfully');
@@ -168,6 +209,53 @@
         console.error('App container not found');
       }
     });
+
+    function showSignUp() {
+      // Open sign-up page in browser
+      if (parent && parent.postMessage) {
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'open-url',
+            payload: { url: 'https://fragmento-theta.vercel.app/signup' }
+          } 
+        }, '*');
+      }
+    }
+
+    function signOut() {
+      // Clear authentication and return to sign-in
+      if (parent && parent.postMessage) {
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'logout'
+          } 
+        }, '*');
+      }
+    }
+
+    function showProjectSelector() {
+      // Navigate back to project selection
+      if (parent && parent.postMessage) {
+        parent.postMessage({ 
+          pluginMessage: { 
+            type: 'show-project-selector'
+          } 
+        }, '*');
+      }
+    }
+
+    function pushVariables() {
+      // Trigger push variables if any are available
+      const pushButton = document.getElementById('pushButton');
+      if (pushButton && !pushButton.disabled) {
+        confirmImport();
+      }
+    }
+
+    function showUserMenu() {
+      // Could show user menu in future
+      console.log('User menu clicked');
+    }
 
     function authenticateWithFragmento() {
       console.log('Authenticate with Fragmento clicked');
@@ -199,70 +287,109 @@
       if (!app) return;
       
       app.innerHTML = `
-        <div style="padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e5e5;">
-            <h1 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">Fragmento</h1>
-            <button onclick="showSettings()" style="background: none; border: none; cursor: pointer; font-size: 16px;">⚙️</button>
+        <div style="
+          background: #1a1a1a; 
+          color: white; 
+          height: 100vh; 
+          padding: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        ">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+            <h1 style="color: white; font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Fragmento</h1>
+            <button onclick="signOut()" style="
+              background: none; 
+              border: none; 
+              cursor: pointer; 
+              color: #888;
+              padding: 8px;
+              border-radius: 6px;
+              transition: color 0.2s;
+            " onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#888'">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
           
-          <div style="margin-bottom: 24px;">
-            <h2 style="color: #1a1a1a; font-size: 14px; font-weight: 500; margin: 0 0 16px 0;">Select Project</h2>
-          </div>
-          
-          <div style="margin-bottom: 16px;">
-            <label style="display: block; color: #666; font-size: 12px; font-weight: 500; margin-bottom: 6px;">Organization</label>
-            <select id="organizationSelect" onchange="onOrganizationChange()" style="
-              width: 100%; 
-              padding: 8px 12px; 
-              border: 1px solid #d1d5db; 
-              border-radius: 6px; 
-              font-size: 13px; 
-              background: white;
-              cursor: pointer;
-            ">
-              <option value="">Select organization...</option>
-              ${organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('')}
-            </select>
-          </div>
-          
-          <div style="margin-bottom: 24px;">
-            <label style="display: block; color: #666; font-size: 12px; font-weight: 500; margin-bottom: 6px;">Project</label>
-            <select id="projectSelect" onchange="onProjectChange()" disabled style="
-              width: 100%; 
-              padding: 8px 12px; 
-              border: 1px solid #d1d5db; 
-              border-radius: 6px; 
-              font-size: 13px; 
-              background: #f9fafb;
-              cursor: not-allowed;
-            ">
-              <option value="">Select organization first...</option>
-            </select>
-            <div id="projectInfo" style="margin-top: 8px; font-size: 11px; color: #666; display: none;"></div>
-          </div>
-          
-          <div id="projectDetails" style="margin-bottom: 24px; display: none;">
-            <div style="background: #f8f9fa; border-radius: 6px; padding: 12px;">
-              <div id="projectDescription" style="color: #666; font-size: 12px; margin-bottom: 8px;"></div>
-              <div id="projectStats" style="color: #666; font-size: 11px;"></div>
+          <div style="flex: 1;">
+            <div style="margin-bottom: 32px;">
+              <h2 style="color: white; font-size: 20px; font-weight: 600; margin: 0 0 8px 0;">Choose a project</h2>
+              <p style="color: #888; font-size: 14px; margin: 0;">Select your organization and project to get started</p>
             </div>
+            
+            <div style="margin-bottom: 20px;">
+              <label style="display: block; color: #ccc; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Organization</label>
+              <select id="organizationSelect" onchange="onOrganizationChange()" style="
+                width: 100%; 
+                padding: 12px 16px; 
+                border: 1px solid #333; 
+                border-radius: 8px; 
+                font-size: 14px; 
+                background: #2a2a2a;
+                color: white;
+                cursor: pointer;
+              ">
+                <option value="">Select organization...</option>
+                ${organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('')}
+              </select>
+            </div>
+            
+            <div style="margin-bottom: 32px;">
+              <label style="display: block; color: #ccc; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Project</label>
+              <select id="projectSelect" onchange="onProjectChange()" disabled style="
+                width: 100%; 
+                padding: 12px 16px; 
+                border: 1px solid #333; 
+                border-radius: 8px; 
+                font-size: 14px; 
+                background: #2a2a2a;
+                color: #666;
+                cursor: not-allowed;
+              ">
+                <option value="">Select organization first...</option>
+              </select>
+            </div>
+            
+            <button id="loadProjectBtn" onclick="loadProject()" disabled style="
+              width: 100%; 
+              padding: 16px 24px; 
+              background: #333; 
+              color: #666; 
+              border: none; 
+              border-radius: 12px; 
+              cursor: not-allowed; 
+              font-weight: 600; 
+              font-size: 16px;
+              transition: all 0.2s ease;
+            ">
+              Load Project
+            </button>
           </div>
           
-          <button id="loadProjectBtn" onclick="loadProject()" disabled style="
-            width: 100%; 
-            padding: 12px 24px; 
-            background: #d1d5db; 
-            color: #9ca3af; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: not-allowed; 
-            font-weight: 500; 
-            font-size: 14px;
-          ">
-            Load Project
-          </button>
+          <div style="display: flex; align-items: center; justify-content: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
+            <div style="
+              width: 32px; 
+              height: 32px; 
+              background: #007AFF; 
+              border-radius: 50%; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+              color: white;
+              font-weight: 600;
+              font-size: 14px;
+            ">
+              ${userInfo?.email ? userInfo.email.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <span style="color: #888; font-size: 12px; margin-left: 8px;">${userInfo?.email || 'User'}</span>
+          </div>
           
-          <div id="output" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px; text-align: left; font-size: 12px; display: none;"></div>
+          <div id="output" style="margin-top: 16px; padding: 12px; background: #333; border-radius: 8px; text-align: left; font-size: 12px; display: none; color: #ccc;"></div>
         </div>
       `;
     }
@@ -424,13 +551,13 @@
       } else {
         selectedOrganization = null;
         projectSelect.disabled = true;
-        projectSelect.style.background = '#f9fafb';
+        projectSelect.style.background = '#2a2a2a';
         projectSelect.style.cursor = 'not-allowed';
         projectSelect.innerHTML = '<option value="">Select organization first...</option>';
         
         loadBtn.disabled = true;
-        loadBtn.style.background = '#d1d5db';
-        loadBtn.style.color = '#9ca3af';
+        loadBtn.style.background = '#333';
+        loadBtn.style.color = '#666';
         loadBtn.style.cursor = 'not-allowed';
       }
     }
@@ -462,7 +589,7 @@
         
         // Enable load button
         loadBtn.disabled = false;
-        loadBtn.style.background = '#18a0fb';
+        loadBtn.style.background = '#007AFF';
         loadBtn.style.color = 'white';
         loadBtn.style.cursor = 'pointer';
       } else {
@@ -471,8 +598,8 @@
         projectDetails.style.display = 'none';
         
         loadBtn.disabled = true;
-        loadBtn.style.background = '#d1d5db';
-        loadBtn.style.color = '#9ca3af';
+        loadBtn.style.background = '#333';
+        loadBtn.style.color = '#666';
         loadBtn.style.cursor = 'not-allowed';
       }
     }
@@ -522,16 +649,114 @@
       if (!app) return;
       
       app.innerHTML = `
-        <div style="padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; box-sizing: border-box;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e5e5;">
-            <div>
-              <h1 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">Fragmento</h1>
-              <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">${project.name}</p>
+        <div style="
+          background: #1a1a1a; 
+          color: white; 
+          height: 100vh; 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        ">
+          <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 16px 20px; 
+            border-bottom: 1px solid #333;
+            background: #1a1a1a;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+          ">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button onclick="showProjectSelector()" style="
+                background: none; 
+                border: none; 
+                cursor: pointer; 
+                color: #888;
+                padding: 6px;
+                border-radius: 4px;
+                transition: color 0.2s;
+              " onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#888'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div>
+                <h1 style="color: white; font-size: 16px; font-weight: 600; margin: 0;">${project.name}</h1>
+                <p style="color: #888; font-size: 12px; margin: 0;">Fragmento</p>
+              </div>
             </div>
-            <button onclick="showSettings()" style="background: none; border: none; cursor: pointer; font-size: 16px;">⚙️</button>
+            
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button onclick="importFigmaVariables()" style="
+                background: none; 
+                border: none; 
+                cursor: pointer; 
+                color: #888;
+                padding: 8px;
+                border-radius: 6px;
+                transition: all 0.2s;
+              " onmouseover="this.style.color='#ccc'; this.style.background='#333'" onmouseout="this.style.color='#888'; this.style.background='none'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              
+              <button onclick="pushVariables()" style="
+                background: none; 
+                border: none; 
+                cursor: pointer; 
+                color: #888;
+                padding: 8px;
+                border-radius: 6px;
+                transition: all 0.2s;
+              " onmouseover="this.style.color='#ccc'; this.style.background='#333'" onmouseout="this.style.color='#888'; this.style.background='none'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="17,8 12,3 7,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              
+              <div style="
+                width: 24px; 
+                height: 24px; 
+                background: #007AFF; 
+                border-radius: 50%; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center;
+                color: white;
+                font-weight: 600;
+                font-size: 10px;
+                cursor: pointer;
+              " onclick="showUserMenu()">
+                U
+              </div>
+              
+              <button onclick="signOut()" style="
+                background: none; 
+                border: none; 
+                cursor: pointer; 
+                color: #888;
+                padding: 8px;
+                border-radius: 6px;
+                transition: color 0.2s;
+              " onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#888'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
           </div>
           
-          <div id="mainContent">
+          <div id="mainContent" style="flex: 1; overflow-y: auto;">
             ${renderEmptyState()}
           </div>
         </div>
@@ -540,37 +765,54 @@
 
     function renderEmptyState() {
       return `
-        <div style="text-align: center; padding: 40px 20px;">
-          <div style="font-size: 48px; margin-bottom: 24px; opacity: 0.6;">🎨</div>
+        <div style="text-align: center; padding: 60px 20px; color: white;">
+          <div style="
+            width: 64px; 
+            height: 64px; 
+            background: #333; 
+            border-radius: 16px; 
+            margin: 0 auto 24px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border: 1px solid #444;
+          ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#888" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="#888" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="#888" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </div>
           
-          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">No Variables Imported Yet</h2>
+          <h2 style="color: white; font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">No tokens imported yet</h2>
           
-          <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 0 0 32px 0; max-width: 280px; margin-left: auto; margin-right: auto;">
-            Import your existing Figma variables to sync with Fragmento. Collections will be mapped to token sets automatically.
+          <p style="color: #888; font-size: 14px; line-height: 1.5; margin: 0 0 32px 0; max-width: 280px; margin-left: auto; margin-right: auto;">
+            Import your Figma variables to get started. Collections will be mapped to token sets automatically.
           </p>
           
           <button onclick="importFigmaVariables()" style="
-            padding: 12px 24px; 
-            background: #18a0fb; 
+            padding: 16px 32px; 
+            background: #007AFF; 
             color: white; 
             border: none; 
-            border-radius: 6px; 
+            border-radius: 12px; 
             cursor: pointer; 
-            font-weight: 500; 
-            font-size: 14px;
-            margin-bottom: 24px;
-            transition: background-color 0.2s;
-          " onmouseover="this.style.background='#1590ea'" onmouseout="this.style.background='#18a0fb'">
-            Import Figma Variables
+            font-weight: 600; 
+            font-size: 16px;
+            margin-bottom: 32px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+          " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
+            Import Variables
           </button>
           
-          <div style="background: #f8f9fa; border-radius: 6px; padding: 16px; text-align: left; max-width: 320px; margin: 0 auto;">
-            <h3 style="color: #1a1a1a; font-size: 13px; font-weight: 500; margin: 0 0 8px 0;">💡 How it works</h3>
-            <ul style="color: #666; font-size: 12px; line-height: 1.4; margin: 0; padding-left: 16px;">
-              <li>Figma Collections → Fragmento Token Sets</li>
-              <li>Variable names and values are preserved</li>
-              <li>Alias relationships are maintained</li>
-              <li>You can select which variables to import</li>
+          <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 12px; padding: 20px; text-align: left; max-width: 320px; margin: 0 auto;">
+            <h3 style="color: white; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">How it works</h3>
+            <ul style="color: #ccc; font-size: 13px; line-height: 1.6; margin: 0; padding-left: 16px;">
+              <li>Figma Collections → Token Sets</li>
+              <li>Variable names and values preserved</li>
+              <li>Alias relationships maintained</li>
+              <li>Select which variables to import</li>
             </ul>
           </div>
         </div>
@@ -608,79 +850,47 @@
       if (!mainContent) return;
       
       mainContent.innerHTML = `
-        <div>
-          ${!isFirstScan && changeAnalysis ? `
-            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-              <h3 style="color: #0369a1; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">📊 Changes Detected</h3>
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px;">
-                <div style="text-align: center; padding: 8px; background: #dcfce7; border-radius: 6px;">
-                  <div style="color: #16a34a; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalAdded}</div>
-                  <div style="color: #15803d; font-size: 11px;">Added</div>
-                </div>
-                <div style="text-align: center; padding: 8px; background: #fef3c7; border-radius: 6px;">
-                  <div style="color: #d97706; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalModified}</div>
-                  <div style="color: #92400e; font-size: 11px;">Modified</div>
-                </div>
-                <div style="text-align: center; padding: 8px; background: #fee2e2; border-radius: 6px;">
-                  <div style="color: #dc2626; font-size: 18px; font-weight: 600;">${changeAnalysis.summary.totalDeleted}</div>
-                  <div style="color: #b91c1c; font-size: 11px;">Deleted</div>
-                </div>
-              </div>
-              <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button onclick="showOnlyChanges()" style="flex: 1; padding: 6px 12px; background: #0ea5e9; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                  Show Only Changes
+        <div style="padding: 20px; color: white;">
+          ${!isFirstScan && changeAnalysis && (changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified + changeAnalysis.summary.totalDeleted > 0) ? `
+            <div style="background: #2a2a2a; border: 1px solid #444; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <h3 style="color: #ccc; font-size: 14px; font-weight: 500; margin: 0 0 12px 0;">Changes detected</h3>
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button onclick="showOnlyChanges()" style="padding: 8px 16px; background: #007AFF; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                  Show Changes Only
                 </button>
-                <button onclick="showAllVariables()" style="flex: 1; padding: 6px 12px; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                  Show All Variables
+                <button onclick="showAllVariables()" style="padding: 8px 16px; background: #333; color: #ccc; border: 1px solid #444; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                  Show All
                 </button>
               </div>
             </div>
           ` : ''}
           
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h2 style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0;">
-              ${!isFirstScan && changeAnalysis ? 'All Variables' : 'All Variables'} (${totalCount})
-            </h2>
-            <button onclick="importFigmaVariables()" style="
-              padding: 8px 16px; 
-              background: #f3f4f6; 
-              color: #374151; 
-              border: 1px solid #d1d5db; 
-              border-radius: 6px; 
-              cursor: pointer; 
-              font-size: 12px;
-              font-weight: 500;
-            ">
-              Refresh Variables
-            </button>
-          </div>
-          
-          <div style="margin-bottom: 16px;">
-            <label style="display: flex; align-items: center; font-size: 13px; color: #374151; cursor: pointer;">
-              <input type="checkbox" id="selectAllVariables" onchange="toggleAllVariables()" checked style="margin-right: 8px;">
-              Select All Variables
+          <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; font-size: 14px; color: #ccc; cursor: pointer;">
+              <input type="checkbox" id="selectAllVariables" onchange="toggleAllVariables()" checked style="margin-right: 8px; accent-color: #007AFF;">
+              Select All (${totalCount})
             </label>
           </div>
           
-          <div id="collectionsContainer" style="max-height: 400px; overflow-y: auto;">
+          <div id="collectionsContainer" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
             ${collections.map(collection => renderCollection(collection)).join('')}
           </div>
           
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e5e5; background: white; position: sticky; bottom: 0; z-index: 100;">
+          <div style="padding-top: 16px; border-top: 1px solid #333; background: #1a1a1a; position: sticky; bottom: 0; z-index: 100;">
             <button id="pushButton" onclick="confirmImport()" style="
               width: 100%; 
               padding: 16px 24px; 
-              background: #18a0fb; 
+              background: #007AFF; 
               color: white; 
               border: none; 
-              border-radius: 8px; 
+              border-radius: 12px; 
               cursor: pointer; 
               font-weight: 600; 
               font-size: 16px;
               transition: all 0.2s ease;
-              box-shadow: 0 2px 8px rgba(24, 160, 251, 0.3);
-            " onmouseover="this.style.background='#1590ea'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(24, 160, 251, 0.4)'" onmouseout="this.style.background='#18a0fb'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(24, 160, 251, 0.3)'">
-              🚀 Push to Fragmento
+              box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+            " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
+              Push to Fragmento
             </button>
           </div>
         </div>
@@ -729,23 +939,23 @@
 
     function renderCollection(collection) {
       return `
-        <div style="margin-bottom: 16px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;">
-          <div style="background: #f8f9fa; padding: 12px 16px; border-bottom: 1px solid #e5e5e5;">
+        <div style="margin-bottom: 16px; border: 1px solid #444; border-radius: 8px; overflow: hidden; background: #2a2a2a;">
+          <div style="background: #333; padding: 12px 16px; border-bottom: 1px solid #444;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;">
+              <h3 style="color: white; font-size: 14px; font-weight: 600; margin: 0; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;">
                 ${collection.name}
               </h3>
-              <label style="display: flex; align-items: center; font-size: 12px; color: #6b7280; cursor: pointer;">
-                <input type="checkbox" onchange="toggleCollection('${collection.id}')" checked style="margin-right: 6px;">
+              <label style="display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer;">
+                <input type="checkbox" onchange="toggleCollection('${collection.id}')" checked style="margin-right: 6px; accent-color: #007AFF;">
                 Select All (${collection.variables.length})
               </label>
             </div>
           </div>
           
-          <div style="background: white;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: #fafafa;">
-              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #6b7280; border-right: 1px solid #f3f4f6;">Token Name</div>
-              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #6b7280;">Value</div>
+          <div style="background: #2a2a2a;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #444; background: #333;">
+              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #888; border-right: 1px solid #444;">Token Name</div>
+              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #888;">Value</div>
             </div>
             
             <div style="max-height: 160px; overflow-y: auto;">
@@ -757,7 +967,7 @@
     }
 
     function renderVariable(variable, collectionId, index) {
-      const bgColor = index % 2 === 0 ? '#ffffff' : '#fafafa';
+      const bgColor = index % 2 === 0 ? '#2a2a2a' : '#333';
       const warningIcon = variable.hasWarning ? '⚠️' : '';
       const typeColor = getTypeColor(variable.tokenType);
       
@@ -772,20 +982,20 @@
         
         if (isAdded) {
           changeIndicator = '<span style="background: #16a34a; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 6px;">NEW</span>';
-          changeBgColor = index % 2 === 0 ? '#f0fdf4' : '#dcfce7';
+          changeBgColor = index % 2 === 0 ? '#1a3a1a' : '#2a4a2a';
         } else if (isModified) {
           changeIndicator = '<span style="background: #d97706; color: white; font-size: 9px; padding: 2px 4px; border-radius: 3px; margin-left: 6px;">MOD</span>';
-          changeBgColor = index % 2 === 0 ? '#fffbeb' : '#fef3c7';
+          changeBgColor = index % 2 === 0 ? '#3a2a1a' : '#4a3a2a';
         }
       }
       
       return `
-        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #f3f4f6; background: ${changeBgColor};">
-          <div style="padding: 12px 16px; border-right: 1px solid #f3f4f6; display: flex; align-items: center;">
-            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="margin-right: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #444; background: ${changeBgColor};">
+          <div style="padding: 12px 16px; border-right: 1px solid #444; display: flex; align-items: center;">
+            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="margin-right: 8px; accent-color: #007AFF;">
             <div style="flex: 1;">
               <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #1a1a1a;">
+                <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: white;">
                   ${variable.name}
                 </span>
                 ${warningIcon}
@@ -795,7 +1005,7 @@
                 <span style="background: ${typeColor}; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500;">
                   ${variable.tokenType}
                 </span>
-                <span style="color: #6b7280; font-size: 10px;">
+                <span style="color: #888; font-size: 10px;">
                   ${variable.resolvedType}
                 </span>
               </div>
@@ -803,7 +1013,9 @@
             </div>
           </div>
           <div style="padding: 12px 16px; display: flex; align-items: center;">
-            ${renderVariableValue(variable)}
+            <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 11px; color: #ccc; word-break: break-all;">
+              ${variable.value}
+            </span>
           </div>
         </div>
       `;
