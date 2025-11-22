@@ -48,7 +48,7 @@ function SelectPlanForm() {
             </Button>
           </div>
 
-          <div className="rounded-lg border bg-card p-6 text-left shadow-sm">
+          <div className="rounded-lg border bg-card p-6 text-left">
             <h2 className="text-base font-semibold">Organization</h2>
             <p className="mt-1 text-xs text-muted-foreground">14-day trial. Best for teams and multiple projects.</p>
             <div className="mt-3 text-2xl font-semibold">$49</div>
@@ -63,6 +63,8 @@ function SelectPlanForm() {
               variant="secondary"
               className="mt-4 h-8 w-full text-xs font-medium"
               onClick={() => handleSelect("organization")}
+              disabled
+              aria-disabled="true"
             >
               Continue with Organization
             </Button>
