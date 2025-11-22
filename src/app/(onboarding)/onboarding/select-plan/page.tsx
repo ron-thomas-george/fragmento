@@ -31,7 +31,7 @@ function SelectPlanForm() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border bg-card p-6 text-left">
+          <div className="flex h-full flex-col rounded-lg border bg-card p-6 text-left">
             <h2 className="text-base font-semibold">Individual</h2>
             <p className="mt-1 text-xs text-muted-foreground">Free forever. Best for solo designers or small projects.</p>
             <div className="mt-3 text-2xl font-semibold">$0</div>
@@ -41,14 +41,14 @@ function SelectPlanForm() {
               <li>1 project, unlimited token sets</li>
             </ul>
             <Button
-              className="mt-4 h-8 w-full text-xs font-medium"
+              className="mt-auto h-8 w-full text-xs font-medium"
               onClick={() => handleSelect("individual")}
             >
               Continue with Individual
             </Button>
           </div>
 
-          <div className="rounded-lg border bg-card p-6 text-left">
+          <div className="flex h-full flex-col rounded-lg border bg-card p-6 text-left">
             <h2 className="text-base font-semibold">Organization</h2>
             <p className="mt-1 text-xs text-muted-foreground">14-day trial. Best for teams and multiple projects.</p>
             <div className="mt-3 text-2xl font-semibold">$49</div>
@@ -61,7 +61,7 @@ function SelectPlanForm() {
             </ul>
             <Button
               variant="secondary"
-              className="mt-4 h-8 w-full text-xs font-medium"
+              className="mt-auto h-8 w-full text-xs font-medium"
               onClick={() => handleSelect("organization")}
               disabled
               aria-disabled="true"
