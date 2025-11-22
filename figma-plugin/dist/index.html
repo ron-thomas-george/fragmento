@@ -98,6 +98,17 @@
 
   <script>
     console.log('Fragmento plugin HTML loaded');
+    window.currentUserInfo = null;
+
+    function requestUserInfo() {
+      if (parent && parent.postMessage) {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'request-user-info'
+          }
+        }, '*');
+      }
+    }
     
     // Show error after 10 seconds if JavaScript doesn't load
     let fallbackTimeout = setTimeout(() => {
@@ -110,9 +121,102 @@
       clearTimeout(fallbackTimeout);
     };
 
+    function renderSignInScreen() {
+      const app = document.getElementById('app');
+      if (!app) {
+        console.error('App container not found');
+        return;
+      }
+
+      app.innerHTML = `
+        <div style="
+          background: #1a1a1a; 
+          color: white; 
+          height: 100vh; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          padding: 40px 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          box-sizing: border-box;
+        ">
+          <div style="margin-bottom: 48px; text-align: center;">
+            <div style="
+              width: 80px; 
+              height: 80px; 
+              background: #333; 
+              border-radius: 20px; 
+              margin: 0 auto 24px; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+              border: 1px solid #444;
+            ">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1 style="
+              color: white; 
+              font-size: 32px; 
+              font-weight: 700; 
+              margin: 0 0 8px 0;
+              letter-spacing: -0.5px;
+            ">Fragmento</h1>
+            <p style="color: #888; font-size: 16px; margin: 20px 0 0 0;">Design token management made simple</p>
+          </div>
+          
+          <div style="width: 100%; max-width: 320px;">
+            <button id="signInButton" onclick="authenticateWithFragmento()" style="
+              width: 100%; 
+              padding: 12px 20px; 
+              background: white; 
+              color: black; 
+              border: 1px solid #333; 
+              border-radius: 12px; 
+              cursor: pointer; 
+              font-weight: 500; 
+              font-size: 16px;
+              margin-bottom: 12px;
+              transition: all 0.2s ease;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            " onmouseover="this.style.background='#f3f3f3'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='white'; this.style.transform='translateY(0)'">
+              Sign in with Fragmento
+            </button>
+            
+            <button onclick="showSignUp()" style="
+              width: 100%; 
+              padding: 12px 20px; 
+              background: transparent; 
+              color: #888; 
+              border: 1px solid #333; 
+              border-radius: 12px; 
+              cursor: pointer; 
+              font-weight: 500; 
+              font-size: 16px;
+              transition: all 0.2s ease;
+            " onmouseover="this.style.borderColor='#555'; this.style.color='#aaa'" onmouseout="this.style.borderColor='#333'; this.style.color='#888'">
+              Don't have an account? Sign up
+            </button>
+          </div>
+          
+          <p style="color: #666; font-size: 12px; line-height: 1.4; text-align: center; margin-top: 32px; max-width: 280px;">
+            Connect your Figma variables to your design system with seamless token management.
+          </p>
+          
+          <div id="output" style="margin-top: 24px; padding: 12px; background: #333; border-radius: 8px; text-align: left; font-size: 12px; min-height: 60px; display: none; color: #ccc; width: 100%; max-width: 320px;"></div>
+        </div>
+      `;
+      console.log('UI rendered successfully');
+    }
+
     // Inline JavaScript to avoid file loading issues
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM loaded, initializing inline JavaScript...');
+      requestUserInfo();
       
       // Clear the fallback timeout
       if (window.clearFallbackTimeout) {
@@ -122,93 +226,25 @@
       const app = document.getElementById('app');
       if (app) {
         console.log('App container found, rendering UI...');
-        app.innerHTML = `
-          <div style="
-            background: #1a1a1a; 
-            color: white; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 40px 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            box-sizing: border-box;
-          ">
-            <div style="margin-bottom: 48px; text-align: center;">
-              <div style="
-                width: 80px; 
-                height: 80px; 
-                background: #333; 
-                border-radius: 20px; 
-                margin: 0 auto 24px; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center;
-                border: 1px solid #444;
-              ">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                  <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                  <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <h1 style="
-                color: white; 
-                font-size: 32px; 
-                font-weight: 700; 
-                margin: 0 0 8px 0;
-                letter-spacing: -0.5px;
-              ">Fragmento</h1>
-              <p style="color: #888; font-size: 16px; margin: 0;">Design token management made simple</p>
-            </div>
-            
-            <div style="width: 100%; max-width: 320px;">
-              <button onclick="authenticateWithFragmento()" style="
-                width: 100%; 
-                padding: 16px 24px; 
-                background: #007AFF; 
-                color: white; 
-                border: none; 
-                border-radius: 12px; 
-                cursor: pointer; 
-                font-weight: 600; 
-                font-size: 16px;
-                margin-bottom: 12px;
-                transition: all 0.2s ease;
-                box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-              " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
-                Sign in with Fragmento
-              </button>
-              
-              <button onclick="showSignUp()" style="
-                width: 100%; 
-                padding: 16px 24px; 
-                background: transparent; 
-                color: #888; 
-                border: 1px solid #333; 
-                border-radius: 12px; 
-                cursor: pointer; 
-                font-weight: 500; 
-                font-size: 16px;
-                transition: all 0.2s ease;
-              " onmouseover="this.style.borderColor='#555'; this.style.color='#aaa'" onmouseout="this.style.borderColor='#333'; this.style.color='#888'">
-                Sign up
-              </button>
-            </div>
-            
-            <p style="color: #666; font-size: 12px; line-height: 1.4; text-align: center; margin-top: 32px; max-width: 280px;">
-              Connect your Figma variables to your design system with seamless token management.
-            </p>
-            
-            <div id="output" style="margin-top: 24px; padding: 12px; background: #333; border-radius: 8px; text-align: left; font-size: 12px; min-height: 60px; display: none; color: #ccc; width: 100%; max-width: 320px;"></div>
-          </div>
-        `;
-        console.log('UI rendered successfully');
+        renderSignInScreen();
       } else {
         console.error('App container not found');
       }
     });
+
+    function setSignInButtonLoading(isLoading) {
+      const signInButton = document.getElementById('signInButton');
+      if (!signInButton) return;
+      if (isLoading) {
+        signInButton.disabled = true;
+        signInButton.textContent = 'Authenticating...';
+        signInButton.style.opacity = '0.75';
+      } else {
+        signInButton.disabled = false;
+        signInButton.textContent = 'Sign in with Fragmento';
+        signInButton.style.opacity = '1';
+      }
+    }
 
     function showSignUp() {
       // Open sign-up page in browser
@@ -231,6 +267,9 @@
           } 
         }, '*');
       }
+
+      window.currentUserInfo = null;
+      renderSignInScreen();
     }
 
     function showProjectSelector() {
@@ -257,48 +296,30 @@
       console.log('User menu clicked');
     }
 
-    function forceEnableLoadButton() {
-      console.log('Force enabling load button');
-      const loadBtn = document.getElementById('loadProjectBtn');
-      const projectSelect = document.getElementById('projectSelect');
-      
-      if (loadBtn) {
-        loadBtn.disabled = false;
-        loadBtn.style.background = 'white';
-        loadBtn.style.color = 'black';
-        loadBtn.style.border = '1px solid #333';
-        loadBtn.style.cursor = 'pointer';
-        loadBtn.style.opacity = '1';
-        console.log('Button force enabled');
-      }
-      
-      if (projectSelect && projects.length > 0) {
-        selectedProject = projects[0].id;
-        projectSelect.value = projects[0].id;
-        console.log('Project selected:', selectedProject);
-      }
-    }
-
     function authenticateWithFragmento() {
       console.log('Authenticate with Fragmento clicked');
-      const output = document.getElementById('output');
-      if (output) {
-        output.style.display = 'block';
-        output.innerHTML = 'Opening browser for authentication...';
-      }
+      setSignInButtonLoading(true);
       
       try {
         if (parent && parent.postMessage) {
-          parent.postMessage({ pluginMessage: { type: 'authenticate' } }, '*');
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'authenticate' 
+            } 
+          }, '*');
           console.log('Authentication message sent to plugin');
         } else {
+          const output = document.getElementById('output');
           if (output) {
+            output.style.display = 'block';
             output.innerHTML = '❌ Error: Cannot communicate with plugin';
           }
         }
       } catch (error) {
         console.error('Error sending authentication message:', error);
+        const output = document.getElementById('output');
         if (output) {
+          output.style.display = 'block';
           output.innerHTML = '❌ Error: ' + error.message;
         }
       }
@@ -307,6 +328,11 @@
     function showOrganizationSelector(organizations, userInfo) {
       const app = document.getElementById('app');
       if (!app) return;
+      window.currentUserInfo = userInfo || window.currentUserInfo;
+      const currentUser = window.currentUserInfo;
+      const displayName = currentUser?.full_name || currentUser?.email || 'User';
+      const initials = displayName.split(' ').map(part => part[0]).join('').substring(0, 2).toUpperCase();
+      const avatarIsImage = Boolean(currentUser?.avatar_url);
       
       app.innerHTML = `
         <div style="
@@ -321,21 +347,40 @@
         ">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
             <h1 style="color: white; font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Fragmento</h1>
-            <button onclick="signOut()" style="
-              background: none; 
-              border: none; 
-              cursor: pointer; 
-              color: #888;
-              padding: 8px;
-              border-radius: 6px;
-              transition: color 0.2s;
-            " onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#888'">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div id="userAvatarDisplay" style="
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: 1px solid #333;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 600;
+                color: ${avatarIsImage ? 'transparent' : 'white'};
+                background: ${avatarIsImage ? '#111' : '#007AFF'};
+                background-image: ${avatarIsImage ? `url('${currentUser?.avatar_url}')` : 'none'};
+                background-size: cover;
+                background-position: center;
+                overflow: hidden;
+              ">${avatarIsImage ? '' : initials}</div>
+              <button onclick="signOut()" style="
+                background: none; 
+                border: none; 
+                cursor: pointer; 
+                color: #888;
+                padding: 8px;
+                border-radius: 6px;
+                transition: color 0.2s;
+              " onmouseover="this.style.color='#ccc'" onmouseout="this.style.color='#888'">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
           </div>
           
           <div style="flex: 1;">
@@ -348,13 +393,18 @@
               <label style="display: block; color: #ccc; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Organization</label>
               <select id="organizationSelect" onchange="onOrganizationChange()" style="
                 width: 100%; 
-                padding: 12px 16px; 
+                padding: 12px 48px 12px 16px; 
                 border: 1px solid #333; 
                 border-radius: 8px; 
                 font-size: 14px; 
-                background: #2a2a2a;
+                background-color: #2a2a2a;
                 color: white;
                 cursor: pointer;
+                appearance: none;
+                -webkit-appearance: none;
+                background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpolyline points=\'1,1 6,6 11,1\' stroke=\'%23c9c9c9\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E');
+                background-repeat: no-repeat;
+                background-position: calc(100% - 16px) 50%;
               ">
                 <option value="">Select organization...</option>
                 ${organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('')}
@@ -365,13 +415,18 @@
               <label style="display: block; color: #ccc; font-size: 14px; font-weight: 500; margin-bottom: 8px;">Project</label>
               <select id="projectSelect" onchange="onProjectChange()" disabled style="
                 width: 100%; 
-                padding: 12px 16px; 
+                padding: 12px 48px 12px 16px; 
                 border: 1px solid #333; 
                 border-radius: 8px; 
                 font-size: 14px; 
-                background: #2a2a2a;
+                background-color: #2a2a2a;
                 color: #666;
                 cursor: not-allowed;
+                appearance: none;
+                -webkit-appearance: none;
+                background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpolyline points=\'1,1 6,6 11,1\' stroke=\'%23c9c9c9\' stroke-width=\'1.5\' fill=\'none\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E');
+                background-repeat: no-repeat;
+                background-position: calc(100% - 16px) 50%;
               ">
                 <option value="">Select organization first...</option>
               </select>
@@ -379,7 +434,7 @@
             
             <button id="loadProjectBtn" onclick="loadProject()" disabled style="
               width: 100%; 
-              padding: 16px 24px; 
+              padding: 12px 20px; 
               background: white; 
               color: black; 
               border: 1px solid #333; 
@@ -392,43 +447,11 @@
             ">
               Load Project
             </button>
-            
-            <button onclick="forceEnableLoadButton()" style="
-              width: 100%; 
-              padding: 8px 16px; 
-              background: #666; 
-              color: white; 
-              border: none; 
-              border-radius: 6px; 
-              cursor: pointer; 
-              font-size: 12px;
-              margin-top: 8px;
-            ">
-              Debug: Force Enable Button
-            </button>
-          </div>
-          
-          <div style="display: flex; align-items: center; justify-content: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
-            <div style="
-              width: 32px; 
-              height: 32px; 
-              background: #007AFF; 
-              border-radius: 50%; 
-              display: flex; 
-              align-items: center; 
-              justify-content: center;
-              color: white;
-              font-weight: 600;
-              font-size: 14px;
-            ">
-              ${userInfo?.email ? userInfo.email.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <span style="color: #888; font-size: 12px; margin-left: 8px;">${userInfo?.email || 'User'}</span>
-          </div>
           
           <div id="output" style="margin-top: 16px; padding: 12px; background: #333; border-radius: 8px; text-align: left; font-size: 12px; display: none; color: #ccc;"></div>
         </div>
       `;
+      setTimeout(updateUserBadgeElements, 0);
     }
 
     async function handleTokenPolling(state, attempt) {
@@ -497,17 +520,16 @@
             output.innerHTML = '✅ Plugin connection successful!<br>📩 Received: ' + msg.payload.message;
           }
         } else if (msg.type === 'auth-initiated') {
-          if (output) {
-            output.innerHTML += '<br>🌐 Browser opened for authentication';
-          }
+          // no toast needed
         } else if (msg.type === 'auth-success') {
+          window.currentUserInfo = msg.payload.userInfo || window.currentUserInfo;
           console.log('Authentication successful, waiting for organizations...');
-          const output = document.getElementById('output');
-          if (output) {
-            output.style.display = 'block';
-            output.innerHTML = 'Authentication successful! Loading organizations...';
-          }
+          setSignInButtonLoading(false);
+        } else if (msg.type === 'user-info-loaded') {
+          window.currentUserInfo = msg.payload.userInfo;
+          updateUserBadgeElements();
         } else if (msg.type === 'auth-error') {
+          setSignInButtonLoading(false);
           const output = document.getElementById('output');
           if (output) {
             output.style.display = 'block';
@@ -520,6 +542,7 @@
         } else if (msg.type === 'organizations-loaded') {
           // Show organization selector interface
           console.log('Organizations loaded:', msg.payload.organizations);
+          window.currentUserInfo = msg.payload.userInfo || window.currentUserInfo;
           showOrganizationSelector(msg.payload.organizations, msg.payload.userInfo);
         } else if (msg.type === 'projects-loaded') {
           // Handle projects data from plugin
@@ -567,7 +590,11 @@
         } else if (msg.type === 'project-loaded') {
           // Show main interface after project is loaded
           console.log('Project loaded successfully');
+          window.currentUserInfo = msg.payload.userInfo || window.currentUserInfo;
           showMainInterface(msg.payload.project);
+        } else if (msg.type === 'user-info') {
+          window.currentUserInfo = msg.payload;
+          updateUserBadgeElements();
         } else if (msg.type === 'variables-scanned') {
           // Show variables after scanning
           console.log('Variables scanned:', msg.payload);
@@ -603,7 +630,8 @@
         
         // Enable project dropdown and fetch projects
         projectSelect.disabled = false;
-        projectSelect.style.background = 'white';
+        projectSelect.style.background = '#2a2a2a';
+        projectSelect.style.color = 'white';
         projectSelect.style.cursor = 'pointer';
         projectSelect.innerHTML = '<option value="">Loading projects...</option>';
         
@@ -629,6 +657,7 @@
         loadBtn.style.border = '1px solid #333';
         loadBtn.style.cursor = 'not-allowed';
         loadBtn.style.opacity = '0.5';
+        loadBtn.textContent = 'Load Project';
       }
     }
 
@@ -654,6 +683,7 @@
         loadBtn.style.border = '1px solid #333';
         loadBtn.style.cursor = 'pointer';
         loadBtn.style.opacity = '1';
+        loadBtn.textContent = 'Load Project';
         
         console.log('Button enabled, new styles applied');
       } else {
@@ -666,9 +696,23 @@
           loadBtn.style.border = '1px solid #333';
           loadBtn.style.cursor = 'not-allowed';
           loadBtn.style.opacity = '0.5';
+          loadBtn.textContent = 'Load Project';
         }
         
         console.log('Button disabled');
+      }
+    }
+
+    function setLoadButtonLoading(isLoading) {
+      const loadBtn = document.getElementById('loadProjectBtn');
+      if (!loadBtn) return;
+      if (isLoading) {
+        loadBtn.disabled = true;
+        loadBtn.textContent = 'Loading...';
+        loadBtn.style.opacity = '0.75';
+      } else {
+        loadBtn.textContent = 'Load Project';
+        loadBtn.style.opacity = loadBtn.disabled ? '0.5' : '1';
       }
     }
 
@@ -676,11 +720,7 @@
       console.log('Load Project clicked', { selectedOrganization, selectedProject });
       
       if (selectedOrganization && selectedProject) {
-        const output = document.getElementById('output');
-        if (output) {
-          output.style.display = 'block';
-          output.innerHTML = 'Loading project...';
-        }
+        setLoadButtonLoading(true);
         
         console.log('Sending load-project message to plugin');
         
@@ -698,12 +738,15 @@
           console.log('Message sent successfully');
         } else {
           console.error('parent.postMessage not available');
+          setLoadButtonLoading(false);
+          const output = document.getElementById('output');
           if (output) {
             output.innerHTML = '❌ Error: Cannot communicate with plugin';
           }
         }
       } else {
         console.error('Missing selection:', { selectedOrganization, selectedProject });
+        setLoadButtonLoading(false);
         const output = document.getElementById('output');
         if (output) {
           output.style.display = 'block';
@@ -715,6 +758,11 @@
     function showMainInterface(project) {
       const app = document.getElementById('app');
       if (!app) return;
+      const currentUser = window.currentUserInfo;
+      const displayName = currentUser?.full_name || currentUser?.email || 'User';
+      const emailLabel = currentUser?.email || '';
+      const initials = displayName.split(' ').map(part => part[0]).join('').substring(0, 2).toUpperCase();
+      const avatarIsImage = Boolean(currentUser?.avatar_url);
       
       app.innerHTML = `
         <div style="
@@ -752,58 +800,28 @@
                 </svg>
               </button>
               <div>
-                <h1 style="color: white; font-size: 16px; font-weight: 600; margin: 0;">${project.name}</h1>
-                <p style="color: #888; font-size: 12px; margin: 0;">Fragmento</p>
+                <h1 style="color: white; font-size: 14px; font-weight: 600; margin: 0;">${project.name}</h1>
               </div>
             </div>
             
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <button onclick="importFigmaVariables()" style="
-                background: none; 
-                border: none; 
-                cursor: pointer; 
-                color: #888;
-                padding: 8px;
-                border-radius: 6px;
-                transition: all 0.2s;
-              " onmouseover="this.style.color='#ccc'; this.style.background='#333'" onmouseout="this.style.color='#888'; this.style.background='none'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              
-              <button onclick="pushVariables()" style="
-                background: none; 
-                border: none; 
-                cursor: pointer; 
-                color: #888;
-                padding: 8px;
-                border-radius: 6px;
-                transition: all 0.2s;
-              " onmouseover="this.style.color='#ccc'; this.style.background='#333'" onmouseout="this.style.color='#888'; this.style.background='none'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <polyline points="17,8 12,3 7,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <line x1="12" y1="3" x2="12" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              
-              <div style="
-                width: 24px; 
-                height: 24px; 
-                background: #007AFF; 
-                border-radius: 50%; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center;
-                color: white;
-                font-weight: 600;
-                font-size: 10px;
-                cursor: pointer;
-              " onclick="showUserMenu()">
-                U
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px; border-left: 1px solid #333; padding-left: 12px;">
+                <div id="userAvatarHeader" style="
+                  width: 28px; 
+                  height: 28px; 
+                  background: #007AFF; 
+                  border-radius: 50%; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center;
+                  color: ${avatarIsImage ? 'transparent' : 'white'};
+                  font-weight: 600;
+                  font-size: 11px;
+                  border: 1px solid #333;
+                  background-image: ${avatarIsImage ? `url('${currentUser?.avatar_url}')` : 'none'};
+                  background-size: cover;
+                  background-position: center;
+                ">${avatarIsImage ? '' : initials}</div>
               </div>
               
               <button onclick="signOut()" style="
@@ -827,8 +845,87 @@
           <div id="mainContent" style="flex: 1; overflow-y: auto;">
             ${renderEmptyState()}
           </div>
+
+          <div style="padding: 16px 20px; border-top: 1px solid #333; background: #1a1a1a; position: sticky; bottom: 0;">
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                  <button id="importIconButton" onclick="importFigmaVariables()" style="
+                padding: 10px 16px;
+                background: #191d22;
+                border: 1px solid #2a2e35;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #e5e7eb;
+                cursor: pointer;
+                transition: background 0.2s ease;
+                font-weight: 500;
+                font-size: 14px;
+              " onmouseover="this.style.background='#1f2329'" onmouseout="this.style.background='#191d22'" title="Fetch variables">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3 3v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M16 16h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Fetch variables</span>
+              </button>
+
+              <button id="pushButton" onclick="confirmImport()" style="
+                padding: 10px 16px;
+                background: white;
+                border: 1px solid #333;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: black;
+                cursor: pointer;
+                transition: background 0.2s ease, opacity 0.2s ease;
+              " onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='white'" title="Push">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2v13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="m16 6-4-4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span id="pushButtonText" style="font-weight: 500; font-size: 14px;">Push</span>
+              </button>
+            </div>
+          </div>
         </div>
       `;
+      setTimeout(updateUserBadgeElements, 0);
+      updatePushButton();
+    }
+
+    function updateUserBadgeElements() {
+      const user = window.currentUserInfo;
+      if (!user) return;
+
+      const displayName = user.full_name || user.email || 'User';
+      const initials = displayName.split(' ').map(part => part[0]).join('').substring(0, 2).toUpperCase();
+      const avatarUrl = user.avatar_url;
+
+      const avatarElements = [
+        document.getElementById('userAvatarDisplay'),
+        document.getElementById('userAvatarHeader')
+      ];
+
+      avatarElements.forEach(el => {
+        if (!el) return;
+        if (avatarUrl) {
+          el.style.backgroundImage = `url('${avatarUrl}')`;
+          el.style.backgroundSize = 'cover';
+          el.style.backgroundPosition = 'center';
+          el.textContent = '';
+          el.style.color = 'transparent';
+        } else {
+          el.style.backgroundImage = 'none';
+          el.textContent = initials;
+          el.style.color = 'white';
+          el.style.background = '#007AFF';
+        }
+      });
     }
 
     function renderEmptyState() {
@@ -854,35 +951,26 @@
           
           <h2 style="color: white; font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">No tokens imported yet</h2>
           
-          <p style="color: #888; font-size: 14px; line-height: 1.5; margin: 0 0 32px 0; max-width: 280px; margin-left: auto; margin-right: auto;">
+          <p style="color: #888; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0; max-width: 280px; margin-left: auto; margin-right: auto;">
             Import your Figma variables to get started. Collections will be mapped to token sets automatically.
           </p>
-          
+
           <button onclick="importFigmaVariables()" style="
-            padding: 16px 32px; 
-            background: #007AFF; 
-            color: white; 
-            border: none; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            font-weight: 600; 
+            width: 100%;
+            max-width: 320px;
+            padding: 12px 20px;
+            background: white;
+            color: black;
+            border: 1px solid #333;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
             font-size: 16px;
-            margin-bottom: 32px;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-          " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
-            Import Variables
-          </button>
-          
-          <div style="background: #2a2a2a; border: 1px solid #333; border-radius: 12px; padding: 20px; text-align: left; max-width: 320px; margin: 0 auto;">
-            <h3 style="color: white; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">How it works</h3>
-            <ul style="color: #ccc; font-size: 13px; line-height: 1.6; margin: 0; padding-left: 16px;">
-              <li>Figma Collections → Token Sets</li>
-              <li>Variable names and values preserved</li>
-              <li>Alias relationships maintained</li>
-              <li>Select which variables to import</li>
-            </ul>
-          </div>
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            display: block;
+            margin: 4px auto 0;
+          " onmouseover="this.style.background='#f3f3f3'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='white'; this.style.transform='translateY(0)'"><span>Import variables</span></button>
         </div>
       `;
     }
@@ -913,20 +1001,26 @@
       }
     }
 
-    function showVariablesInterface(collections, totalCount, changeAnalysis, isFirstScan) {
+    function showVariablesInterface(collections, totalCount, changeAnalysis, isFirstScan, activeTab) {
       const mainContent = document.getElementById('mainContent');
       if (!mainContent) return;
       
+      const hasChanges = !isFirstScan && changeAnalysis && (changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified + changeAnalysis.summary.totalDeleted > 0);
+      const selectedTab = activeTab ? activeTab : (hasChanges ? 'changes' : 'all');
+      const applyChangesFilter = hasChanges && selectedTab === 'changes';
+      const filteredCollections = applyChangesFilter ? filterCollectionsByChanges(collections, changeAnalysis) : collections;
+      const filteredCount = applyChangesFilter && changeAnalysis ? (changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified) : totalCount;
+      window.currentTabSelection = selectedTab;
+      
       mainContent.innerHTML = `
         <div style="padding: 20px; color: white;">
-          ${!isFirstScan && changeAnalysis && (changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified + changeAnalysis.summary.totalDeleted > 0) ? `
-            <div style="background: #2a2a2a; border: 1px solid #444; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-              <h3 style="color: #ccc; font-size: 14px; font-weight: 500; margin: 0 0 12px 0;">Changes detected</h3>
-              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                <button onclick="showOnlyChanges()" style="padding: 8px 16px; background: #007AFF; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500;">
+          ${hasChanges ? `
+            <div style="margin-bottom: 24px;">
+              <div style="display: flex; gap: 8px; background: #0f1114; border-radius: 14px; padding: 4px;">
+                <button onclick="showOnlyChanges()" style="flex: 1; padding: 10px 0; border-radius: 10px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: ${selectedTab === 'changes' ? '#111315' : '#a3a3a3'}; background: ${selectedTab === 'changes' ? 'white' : 'transparent'};">
                   Show Changes Only
                 </button>
-                <button onclick="showAllVariables()" style="padding: 8px 16px; background: #333; color: #ccc; border: 1px solid #444; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                <button onclick="showAllVariables()" style="flex: 1; padding: 10px 0; border-radius: 10px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; color: ${selectedTab === 'all' ? '#111315' : '#a3a3a3'}; background: ${selectedTab === 'all' ? 'white' : 'transparent'};">
                   Show All
                 </button>
               </div>
@@ -936,30 +1030,12 @@
           <div style="margin-bottom: 20px;">
             <label style="display: flex; align-items: center; font-size: 14px; color: #ccc; cursor: pointer;">
               <input type="checkbox" id="selectAllVariables" onchange="toggleAllVariables()" checked style="margin-right: 8px; accent-color: #007AFF;">
-              Select All (${totalCount})
+              Select All (${filteredCount})
             </label>
           </div>
           
           <div id="collectionsContainer" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
-            ${collections.map(collection => renderCollection(collection)).join('')}
-          </div>
-          
-          <div style="padding-top: 16px; border-top: 1px solid #333; background: #1a1a1a; position: sticky; bottom: 0; z-index: 100;">
-            <button id="pushButton" onclick="confirmImport()" style="
-              width: 100%; 
-              padding: 16px 24px; 
-              background: #007AFF; 
-              color: white; 
-              border: none; 
-              border-radius: 12px; 
-              cursor: pointer; 
-              font-weight: 600; 
-              font-size: 16px;
-              transition: all 0.2s ease;
-              box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-            " onmouseover="this.style.background='#0056CC'; this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#007AFF'; this.style.transform='translateY(0)'">
-              Push to Fragmento
-            </button>
+            ${filteredCollections.map(collection => renderCollection(collection)).join('')}
           </div>
         </div>
       `;
@@ -974,59 +1050,51 @@
       setTimeout(() => updatePushButton(), 100);
     }
 
-    function showOnlyChanges() {
-      if (!window.currentChangeAnalysis) return;
-      
-      const changeAnalysis = window.currentChangeAnalysis;
-      const filteredCollections = [];
-      
-      // Create collections with only changed variables
-      window.currentCollections.forEach(collection => {
+    function filterCollectionsByChanges(collections, changeAnalysis) {
+      if (!changeAnalysis) return collections;
+      const filtered = [];
+      collections.forEach(collection => {
         const changedVariables = collection.variables.filter(variable => {
           const variableKey = `${collection.id}:${variable.id}`;
           return changeAnalysis.added.some(v => `${v.collectionId}:${v.id}` === variableKey) ||
                  changeAnalysis.modified.some(v => `${v.collectionId}:${v.id}` === variableKey);
         });
-        
         if (changedVariables.length > 0) {
-          filteredCollections.push({
-            ...collection,
-            variables: changedVariables
-          });
+          filtered.push({ ...collection, variables: changedVariables });
         }
       });
-      
-      const totalChanges = changeAnalysis.summary.totalAdded + changeAnalysis.summary.totalModified;
-      showVariablesInterface(filteredCollections, totalChanges, changeAnalysis, window.currentIsFirstScan);
+      return filtered;
+    }
+
+    function showOnlyChanges() {
+      if (!window.currentCollections) return;
+      showVariablesInterface(window.currentCollections, window.currentTotalCount, window.currentChangeAnalysis, window.currentIsFirstScan, 'changes');
     }
 
     function showAllVariables() {
       if (!window.currentCollections) return;
-      showVariablesInterface(window.currentCollections, window.currentTotalCount, window.currentChangeAnalysis, window.currentIsFirstScan);
+      showVariablesInterface(window.currentCollections, window.currentTotalCount, window.currentChangeAnalysis, window.currentIsFirstScan, 'all');
     }
 
     function renderCollection(collection) {
       return `
-        <div style="margin-bottom: 16px; border: 1px solid #444; border-radius: 8px; overflow: hidden; background: #2a2a2a;">
-          <div style="background: #333; padding: 12px 16px; border-bottom: 1px solid #444;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h3 style="color: white; font-size: 14px; font-weight: 600; margin: 0; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;">
-                ${collection.name}
-              </h3>
-              <label style="display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer;">
-                <input type="checkbox" onchange="toggleCollection('${collection.id}')" checked style="margin-right: 6px; accent-color: #007AFF;">
-                Select All (${collection.variables.length})
-              </label>
+        <div style="margin-bottom: 16px; border: 1px solid #333; border-radius: 16px; overflow: hidden; background: #151515; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);">
+          <div style="padding: 16px 20px; border-bottom: 1px solid #242424; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; flex-direction: column;">
+              <span style="color: white; font-size: 15px; font-weight: 600; font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;">${collection.name}</span>
+              <span style="color: #666; font-size: 12px;">${collection.variables.length} tokens</span>
             </div>
+            <label style="display: flex; align-items: center; font-size: 12px; color: #a3a3a3; cursor: pointer;">
+              <input type="checkbox" onchange="toggleCollection('${collection.id}')" checked style="margin-right: 6px; accent-color: #007AFF;">
+              Select All
+            </label>
           </div>
-          
-          <div style="background: #2a2a2a;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #444; background: #333;">
-              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #888; border-right: 1px solid #444;">Token Name</div>
-              <div style="padding: 8px 16px; font-size: 12px; font-weight: 500; color: #888;">Value</div>
+          <div>
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 10px 20px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #7c7c7c; border-bottom: 1px solid #242424;">
+              <span>Token</span>
+              <span>Value</span>
             </div>
-            
-            <div style="max-height: 160px; overflow-y: auto;">
+            <div>
               ${collection.variables.map((variable, index) => renderVariable(variable, collection.id, index)).join('')}
             </div>
           </div>
@@ -1035,7 +1103,7 @@
     }
 
     function renderVariable(variable, collectionId, index) {
-      const bgColor = index % 2 === 0 ? '#2a2a2a' : '#333';
+      const bgColor = index % 2 === 0 ? '#1b1b1b' : '#151515';
       const warningIcon = variable.hasWarning ? '⚠️' : '';
       const typeColor = getTypeColor(variable.tokenType);
       
@@ -1058,32 +1126,17 @@
       }
       
       return `
-        <div style="display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #444; background: ${changeBgColor};">
-          <div style="padding: 12px 16px; border-right: 1px solid #444; display: flex; align-items: center;">
-            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="margin-right: 8px; accent-color: #007AFF;">
-            <div style="flex: 1;">
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: white;">
-                  ${variable.name}
-                </span>
-                ${warningIcon}
-                ${changeIndicator}
-              </div>
-              <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                <span style="background: ${typeColor}; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500;">
-                  ${variable.tokenType}
-                </span>
-                <span style="color: #888; font-size: 10px;">
-                  ${variable.resolvedType}
-                </span>
-              </div>
-              ${variable.hasWarning ? `<div style="color: #f59e0b; font-size: 10px; margin-top: 2px;">${variable.warningMessage}</div>` : ''}
-            </div>
-          </div>
-          <div style="padding: 12px 16px; display: flex; align-items: center;">
-            <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 11px; color: #ccc; word-break: break-all;">
-              ${variable.value}
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-bottom: 1px solid #242424; background: ${changeBgColor}; padding: 10px 20px; align-items: center; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+            <input type="checkbox" class="variable-checkbox" data-collection="${collectionId}" data-variable="${variable.id}" checked onchange="updatePushButton()" style="accent-color: #007AFF;">
+            <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: white; overflow-wrap: anywhere;">
+              ${variable.name}
             </span>
+            ${warningIcon}
+            ${changeIndicator}
+          </div>
+          <div style="display: flex; align-items: center; justify-content: flex-start; font-size: 12px; color: #f5f5f5; min-width: 0; overflow-wrap: anywhere;">
+            ${renderVariableValue(variable)}
           </div>
         </div>
       `;
@@ -1095,9 +1148,9 @@
           return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #7c3aed;">{${variable.aliasName}}</span>`;
         } else {
           return `
-            <div style="display: flex; align-items: center;">
-              <div style="width: 16px; height: 16px; border-radius: 50%; background: ${variable.value}; border: 1px solid #e5e5e5; margin-right: 8px;"></div>
-              <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #374151;">
+            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+              <div style="width: 16px; height: 16px; border-radius: 50%; background: ${variable.value}; border: 1px solid #4d4d4d; flex-shrink: 0;"></div>
+              <span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 11px; color: #f5f5f5; overflow-wrap: anywhere;">
                 ${variable.value}
               </span>
             </div>
@@ -1105,9 +1158,9 @@
         }
       } else {
         if (variable.isAlias) {
-          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #7c3aed;">{${variable.aliasName}}</span>`;
+          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 11px; color: #c084fc; overflow-wrap: anywhere;">{${variable.aliasName}}</span>`;
         } else {
-          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 12px; color: #374151;">${variable.value}</span>`;
+          return `<span style="font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace; font-size: 11px; color: #f5f5f5; overflow-wrap: anywhere;">${variable.value}</span>`;
         }
       }
     }
@@ -1126,19 +1179,22 @@
     function updatePushButton() {
       const selectedCount = document.querySelectorAll('.variable-checkbox:checked').length;
       const pushButton = document.getElementById('pushButton');
+      const pushButtonText = document.getElementById('pushButtonText');
       
       if (pushButton) {
         if (selectedCount === 0) {
-          pushButton.textContent = '🚀 Push to Fragmento';
           pushButton.style.opacity = '0.5';
           pushButton.style.cursor = 'not-allowed';
           pushButton.disabled = true;
         } else {
-          pushButton.textContent = `🚀 Push ${selectedCount} Variable${selectedCount === 1 ? '' : 's'} to Fragmento`;
           pushButton.style.opacity = '1';
           pushButton.style.cursor = 'pointer';
           pushButton.disabled = false;
         }
+      }
+
+      if (pushButtonText) {
+        pushButtonText.textContent = selectedCount > 0 ? `Push (${selectedCount})` : 'Push';
       }
     }
 
@@ -1204,47 +1260,48 @@
       
       overlay.innerHTML = `
         <div style="
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 400px;
-          width: 100%;
-          max-height: 80vh;
-          overflow-y: auto;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+          width: 420px;
+          background: #1f1f1f;
+          border-radius: 28px;
+          padding: 32px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          color: #f5f5f5;
+          box-shadow: 0px 32px 80px rgba(0, 0, 0, 0.45);
+          border: 1px solid #1f2428;
         ">
-          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">
+          <h2 style="color: #f8fafc; font-size: 20px; font-weight: 600; margin: 0 0 12px 0;">
             Confirm Push to Fragmento
           </h2>
           
-          <p style="color: #666; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
+          <p style="color: #9ca3af; font-size: 14px; margin: 0 0 24px 0; line-height: 1.6;">
             This will sync ${selectedVariables.length} variables from Figma to your Fragmento project.
           </p>
           
-          <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
-            <div style="color: #0369a1; font-size: 12px; font-weight: 500; margin-bottom: 4px;">ℹ️ Token Name Conversion</div>
-            <div style="color: #0369a1; font-size: 11px; line-height: 1.4;">
-              Figma variable names will be automatically converted to valid token names:<br>
+          <div style="background: #141a2a; border: 1px solid #2d3a57; border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+            <div style="color: #7dd3fc; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
+              Token Name Conversion
+            </div>
+            <div style="color: #cfe8ff; font-size: 12px; line-height: 1.5;">
               • Forward slashes (/) → dots (.)<br>
               • Spaces → underscores (_)<br>
               • Example: "surface/surface-primary" → "surface.surface-primary"
             </div>
           </div>
           
-          <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-            <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>
-            <div style="font-size: 13px; color: #374151; line-height: 1.6;">
+          <div style="background: #0f1114; border: 1px solid #1f2329; border-radius: 18px; padding: 18px; margin-bottom: 20px;">
+            <h3 style="color: #f8fafc; font-size: 14px; font-weight: 600; margin: 0 0 10px 0;">Summary</h3>
+            <div style="font-size: 13px; color: #e2e8f0; line-height: 1.7;">
               <div>• <strong>${stats.newTokens}</strong> new tokens will be created</div>
               <div>• <strong>${stats.newSets}</strong> new sets will be created</div>
               <div>• <strong>${stats.collections.length}</strong> collections will be processed</div>
-              ${stats.warnings > 0 ? `<div style="color: #f59e0b;">• <strong>${stats.warnings}</strong> warnings detected</div>` : ''}
+              ${stats.warnings > 0 ? `<div style="color: #fbbf24;">• <strong>${stats.warnings}</strong> warnings detected</div>` : ''}
             </div>
           </div>
           
           ${stats.warnings > 0 ? `
-            <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 12px; margin-bottom: 20px;">
-              <div style="color: #92400e; font-size: 12px; font-weight: 500;">⚠️ Warnings:</div>
-              <div style="color: #92400e; font-size: 11px; margin-top: 4px;">
+            <div style="background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; border-radius: 14px; padding: 14px; margin-bottom: 20px;">
+              <div style="color: #fbbf24; font-size: 13px; font-weight: 600;">⚠️ Warnings detected</div>
+              <div style="color: #fde68a; font-size: 12px; margin-top: 4px;">
                 Some variables have type compatibility issues. They will be converted automatically.
               </div>
             </div>
@@ -1254,10 +1311,10 @@
             <button onclick="closePushDialog()" style="
               flex: 1;
               padding: 12px 16px;
-              background: #f3f4f6;
-              color: #374151;
-              border: 1px solid #d1d5db;
-              border-radius: 6px;
+              background: #191d22;
+              color: #e5e7eb;
+              border: 1px solid #2a2e35;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
               font-size: 14px;
@@ -1266,15 +1323,16 @@
             </button>
             <button onclick="executePush(${JSON.stringify(selectedVariables).replace(/"/g, '&quot;')})" style="
               flex: 1;
-              padding: 12px 16px;
-              background: #18a0fb;
-              color: white;
-              border: none;
-              border-radius: 6px;
+              padding: 12px 20px;
+              background: white;
+              color: black;
+              border: 1px solid #333;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
               font-size: 14px;
-            ">
+              transition: all 0.2s ease;
+            " onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='white'">
               Confirm Push
             </button>
           </div>
@@ -1311,9 +1369,20 @@
 
     function executePush(selectedVariables) {
       closePushDialog();
-      
+
       console.log('Executing push:', selectedVariables.length);
       
+      const pushButton = document.getElementById('pushButton');
+      const pushButtonText = document.getElementById('pushButtonText');
+      if (pushButton) {
+        pushButton.disabled = true;
+        pushButton.style.opacity = '0.4';
+        pushButton.style.cursor = 'not-allowed';
+        if (pushButtonText) {
+          pushButtonText.textContent = 'Push';
+        }
+      }
+
       // Send push request to plugin
       if (parent && parent.postMessage) {
         parent.postMessage({ 
@@ -1328,12 +1397,11 @@
       const mainContent = document.getElementById('mainContent');
       if (mainContent) {
         mainContent.innerHTML = `
-          <div id="pushProgress" style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 32px; margin-bottom: 16px;">📤</div>
-            <h2 id="pushTitle" style="color: #1a1a1a; font-size: 16px; font-weight: 500; margin: 0 0 8px 0;">Preparing to push...</h2>
-            <p id="pushMessage" style="color: #666; font-size: 13px; margin: 0 0 16px 0;">Initializing sync of ${selectedVariables.length} variables</p>
-            <div style="width: 100%; max-width: 300px; margin: 0 auto; background: #f3f4f6; border-radius: 8px; overflow: hidden;">
-              <div id="progressBar" style="height: 4px; background: #18a0fb; width: 10%; transition: width 0.3s ease;"></div>
+          <div id="pushProgress" style="text-align: center; padding: 40px 20px; color: white; min-height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px;">
+            <h2 id="pushTitle" style="font-size: 16px; font-weight: 500; margin: 0 0 8px 0;">Preparing to push...</h2>
+            <p id="pushMessage" style="color: #9ca3af; font-size: 13px; margin: 0 0 16px 0;">Initializing sync of ${selectedVariables.length} variables</p>
+            <div style="width: 100%; max-width: 300px; margin: 0 auto; background: #1f2329; border-radius: 8px; overflow: hidden;">
+              <div id="progressBar" style="height: 4px; background: white; width: 10%; transition: width 0.3s ease;"></div>
             </div>
           </div>
         `;
@@ -1379,27 +1447,25 @@
       const hasErrors = results.errors && results.errors.length > 0;
       
       mainContent.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px;">
-          <div style="font-size: 48px; margin-bottom: 24px;">${hasErrors ? '⚠️' : '🎉'}</div>
-          
-          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
+        <div style="text-align: center; padding: 40px 20px; color: white;">
+          <h2 style="font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
             ${hasErrors ? 'Push Completed with Warnings' : 'Successfully Pushed to Fragmento!'}
           </h2>
-          
-          <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 24px 0; text-align: left;">
-            <h3 style="color: #1a1a1a; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>
-            <div style="font-size: 13px; color: #374151; line-height: 1.6;">
+
+          <div style="background: #111315; border: 1px solid #1f2329; border-radius: 20px; padding: 20px; margin: 24px 0; text-align: left; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);">
+            <h3 style="color: white; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Summary</h3>
+            <div style="font-size: 13px; color: #cbd5f5; line-height: 1.8;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <span>Tokens Created:</span>
-                <strong style="color: #10b981;">${summary.tokensCreated}</strong>
+                <strong style="color: #34d399;">${summary.tokensCreated}</strong>
               </div>
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <span>Tokens Updated:</span>
-                <strong style="color: #3b82f6;">${summary.tokensUpdated}</strong>
+                <strong style="color: #60a5fa;">${summary.tokensUpdated}</strong>
               </div>
               <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                 <span>Sets Created:</span>
-                <strong style="color: #8b5cf6;">${summary.setsCreated}</strong>
+                <strong style="color: #c084fc;">${summary.setsCreated}</strong>
               </div>
               ${hasErrors ? `
                 <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e5e5;">
@@ -1423,31 +1489,32 @@
             </div>
           ` : ''}
           
-          <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <div style="display: flex; flex-direction: column; gap: 12px; max-width: 360px; margin: 0 auto; width: 100%;">
             <button onclick="importFigmaVariables()" style="
-              flex: 1;
-              padding: 12px 16px;
-              background: #f3f4f6;
-              color: #374151;
-              border: 1px solid #d1d5db;
-              border-radius: 6px;
+              width: 100%;
+              padding: 12px 20px;
+              background: #191d22;
+              color: #e5e7eb;
+              border: 1px solid #2a2e35;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
-              font-size: 14px;
+              font-size: 16px;
             ">
               Import More Variables
             </button>
             <button onclick="openInFragmento('${projectUrl}')" style="
-              flex: 1;
-              padding: 12px 16px;
-              background: #18a0fb;
-              color: white;
-              border: none;
-              border-radius: 6px;
+              width: 100%;
+              padding: 12px 20px;
+              background: white;
+              color: black;
+              border: 1px solid #333;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
-              font-size: 14px;
-            ">
+              font-size: 16px;
+              transition: all 0.2s ease;
+            " onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='white'">
               View in Fragmento
             </button>
           </div>
@@ -1460,49 +1527,48 @@
       if (!mainContent) return;
       
       mainContent.innerHTML = `
-        <div style="text-align: center; padding: 40px 20px;">
-          <div style="font-size: 48px; margin-bottom: 24px;">❌</div>
-          
-          <h2 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
+        <div style="text-align: center; padding: 40px 20px; color: white;">
+          <h2 style="font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
             Push Failed
           </h2>
           
-          <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
+          <p style="color: #9ca3af; font-size: 14px; line-height: 1.5; margin: 0 0 24px 0;">
             There was an error pushing your variables to Fragmento.
           </p>
           
-          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 16px; margin-bottom: 24px; text-align: left;">
-            <div style="color: #dc2626; font-size: 12px; font-weight: 500; margin-bottom: 8px;">Error Details:</div>
-            <div style="color: #dc2626; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;">
+          <div style="background: #1a1c1f; border: 1px solid #2c2f34; border-radius: 16px; padding: 16px; margin-bottom: 24px; text-align: left;">
+            <div style="color: #f87171; font-size: 12px; font-weight: 600; margin-bottom: 8px;">Error Details</div>
+            <div style="color: #fecaca; font-size: 12px; font-family: 'SF Mono', Monaco, monospace;">
               ${errorMessage}
             </div>
           </div>
           
-          <div style="display: flex; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 12px; max-width: 360px; margin: 0 auto; width: 100%;">
             <button onclick="importFigmaVariables()" style="
-              flex: 1;
-              padding: 12px 16px;
-              background: #f3f4f6;
-              color: #374151;
-              border: 1px solid #d1d5db;
-              border-radius: 6px;
+              width: 100%;
+              padding: 12px 20px;
+              background: #191d22;
+              color: #e5e7eb;
+              border: 1px solid #2a2e35;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
-              font-size: 14px;
+              font-size: 16px;
             ">
               Back to Variables
             </button>
             <button onclick="confirmImport()" style="
-              flex: 1;
-              padding: 12px 16px;
-              background: #18a0fb;
-              color: white;
-              border: none;
-              border-radius: 6px;
+              width: 100%;
+              padding: 12px 20px;
+              background: white;
+              color: black;
+              border: 1px solid #333;
+              border-radius: 12px;
               cursor: pointer;
               font-weight: 500;
-              font-size: 14px;
-            ">
+              font-size: 16px;
+              transition: all 0.2s ease;
+            " onmouseover="this.style.background='#f3f3f3'" onmouseout="this.style.background='white'">
               Try Again
             </button>
           </div>

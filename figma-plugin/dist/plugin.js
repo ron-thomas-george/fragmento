@@ -150,6 +150,20 @@
         case "fetch-organizations":
           await handleFetchOrganizations(msg.payload.authToken);
           break;
+        case "show-project-selector":
+          {
+            const storedToken2 = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
+            if (storedToken2) {
+              const authToken = JSON.parse(storedToken2);
+              await handleFetchOrganizations(authToken);
+            } else {
+              figma.ui.postMessage({
+                type: "logout-success",
+                payload: { message: "Session expired" }
+              });
+            }
+          }
+          break;
         case "fetch-projects":
           const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
           if (storedToken) {

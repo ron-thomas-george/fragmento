@@ -236,6 +236,16 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
                       <span className="text-xs">All projects</span>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      router.push('/organizations');
+                    }}
+                    className="flex w-full items-center rounded-md px-2 py-1 text-left hover:bg-muted"
+                  >
+                    <span className="text-xs">View organizations</span>
+                  </button>
                 </div>
 
                 <div className="my-2 h-px bg-border" />
