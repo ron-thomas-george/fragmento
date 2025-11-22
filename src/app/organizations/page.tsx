@@ -8,7 +8,7 @@ interface Organization {
   id: string;
   name: string;
   created_at: string | null;
-  updated_at: string | null;
+  updated_at?: string | null;
 }
 
 const avatarColors = [
@@ -75,7 +75,7 @@ export default function OrganizationsPage() {
 
         const { data, error: orgError } = await supabase
           .from("organizations")
-          .select("id, name, created_at, updated_at")
+          .select("id, name, created_at")
           .eq("owner_id", user.id)
           .order("created_at", { ascending: false });
 
