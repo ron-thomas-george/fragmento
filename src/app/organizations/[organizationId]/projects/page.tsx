@@ -11,6 +11,45 @@ interface Project {
   created_at: string | null;
 }
 
+const avatarColors = [
+  "#a5b4fc",
+  "#fbcfe8",
+  "#fed7aa",
+  "#bbf7d0",
+  "#99f6e4",
+  "#c4b5fd",
+  "#fcd34d",
+];
+
+const getAvatarColor = (index: number) =>
+  avatarColors[index % avatarColors.length];
+
+const formatRelativeTime = (dateString: string | null) => {
+  if (!dateString) return "Created just now";
+  const date = new Date(dateString);
+  const diffMs = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs >= day) {
+    const days = Math.floor(diffMs / day);
+    return `Created ${days} day${days === 1 ? "" : "s"} ago`;
+  }
+
+  if (diffMs >= hour) {
+    const hours = Math.floor(diffMs / hour);
+    return `Created ${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  if (diffMs >= minute) {
+    const minutes = Math.floor(diffMs / minute);
+    return `Created ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+
+  return "Created just now";
+};
+
 export default function OrganizationProjectsPage() {
   const router = useRouter();
   const params = useParams<{ organizationId: string }>();
@@ -103,22 +142,35 @@ export default function OrganizationProjectsPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {projects.map((project) => (
+            {projects.map((project, index) => (
               <button
                 key={project.id}
                 type="button"
                 onClick={() => router.push(`/projects/${project.id}/tokens`)}
-                className="flex flex-col items-start rounded-lg border bg-card p-5 text-left transition-colors hover:border-primary/60"
+                className="group flex flex-col rounded-2xl border border-border/70 bg-card/70 text-left transition-colors hover:border-primary/60"
               >
-                <span className="text-sm font-medium">{project.name}</span>
-                <span className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Project
-                </span>
-                {project.created_at ? (
-                  <span className="mt-2 text-xs text-muted-foreground">
-                    Created {new Date(project.created_at).toLocaleDateString()}
+                <div
+                  className="h-32 w-full rounded-t-2xl"
+                  style={{
+                    backgroundColor: getAvatarColor(index),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "rgba(255,255,255,0.9)",
+                    fontSize: "2rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {project.name?.charAt(0)?.toUpperCase() ?? "P"}
+                </div>
+                <div className="flex flex-col gap-1 px-4 py-3">
+                  <span className="text-sm font-medium text-foreground">
+                    {project.name}
                   </span>
-                ) : null}
+                  <span className="text-xs text-muted-foreground">
+                    {formatRelativeTime(project.created_at)}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
