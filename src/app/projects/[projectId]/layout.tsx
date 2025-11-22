@@ -20,20 +20,6 @@ interface CurrentProject {
   organization_id: string;
 }
 
-interface ProjectWithOrganization extends CurrentProject {
-  organizations?:
-    | {
-        id: string;
-        name: string;
-        plan?: string | null;
-      }
-    | {
-        id: string;
-        name: string;
-        plan?: string | null;
-      }[];
-}
-
 interface CurrentOrganization {
   id: string;
   name: string;
@@ -155,10 +141,7 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
 
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .select(
-          `id, name, slug, organization_id,
-          organizations!projects_organization_id_fkey (id, name, plan)`
-        )
+        .select("id, name, slug, organization_id")
         .eq("id", projectId)
         .single();
 
@@ -168,27 +151,15 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
 
       setCurrentProject(project as CurrentProject);
 
-      const joinedOrgRaw = (project as ProjectWithOrganization).organizations;
-      const joinedOrg = Array.isArray(joinedOrgRaw)
-        ? joinedOrgRaw[0]
-        : joinedOrgRaw;
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .select("id, name, plan")
+        .eq("id", project.organization_id)
+        .single();
 
-      if (joinedOrg) {
-        setCurrentOrg({
-          id: joinedOrg.id,
-          name: joinedOrg.name,
-          plan: joinedOrg.plan ?? undefined,
-        });
-      } else {
-        const { data: org, error: orgError } = await supabase
-          .from("organizations")
-          .select("id, name, plan")
-          .eq("id", project.organization_id)
-          .single();
-
-        if (!orgError && org) {
-          setCurrentOrg(org as CurrentOrganization);
-        }
+      if (!orgError && org) {
+        console.log('Organization data:', org); // Debug log
+        setCurrentOrg(org as CurrentOrganization);
       }
 
       const { data: projectsForOrg } = await supabase
