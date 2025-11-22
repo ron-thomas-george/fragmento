@@ -35,7 +35,7 @@ function SelectPlanForm() {
             <h2 className="text-base font-semibold">Individual</h2>
             <p className="mt-1 text-xs text-muted-foreground">Free forever. Best for solo designers or small projects.</p>
             <div className="mt-3 text-2xl font-semibold">$0</div>
-            <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+            <ul className="mt-3 mb-8 space-y-1 text-xs text-muted-foreground">
               <li>1 editor seat</li>
               <li>Unlimited viewers</li>
               <li>1 project, unlimited token sets</li>
@@ -53,7 +53,7 @@ function SelectPlanForm() {
             <p className="mt-1 text-xs text-muted-foreground">14-day trial. Best for teams and multiple projects.</p>
             <div className="mt-3 text-2xl font-semibold">$49</div>
             <p className="text-xs text-muted-foreground">per month</p>
-            <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+            <ul className="mt-3 mb-8 space-y-1 text-xs text-muted-foreground">
               <li>5 editor seats included</li>
               <li>Unlimited viewers</li>
               <li>Up to 10 projects</li>
