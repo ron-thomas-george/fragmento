@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronDown, ChevronRight, Globe, Palette, AlertCircle, Clock, User, GitBranch, MessageSquare, Download, MoreHorizontal, Sparkles, Package, Filter, X, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, Globe, Palette, AlertCircle, Clock, User, GitBranch, MessageSquare, Download, MoreHorizontal, Sparkles, Package, Filter, X, ExternalLink, Trash2 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient"
 import { useRouter } from "next/navigation";
 
@@ -64,12 +64,19 @@ export default function VersionsPage({ params }: VersionsPageProps) {
   // Filters for Release History
   const [releaseTypeFilter, setReleaseTypeFilter] = useState("all");
   const [releaseSearchTerm, setReleaseSearchTerm] = useState("");
-  
+
   // Release details sheet
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [releaseTokens, setReleaseTokens] = useState<any[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [loadingTokens, setLoadingTokens] = useState(false);
+
+  // Discard dialogs
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [discardAllDialogOpen, setDiscardAllDialogOpen] = useState(false);
+  const [selectedChange, setSelectedChange] = useState<Change | null>(null);
+  const [discardingChange, setDiscardingChange] = useState(false);
+  const [discardingAll, setDiscardingAll] = useState(false);
 
   // Load real data from database
   useEffect(() => {
@@ -494,6 +501,10 @@ export default function VersionsPage({ params }: VersionsPageProps) {
               variant="outline" 
               size="sm"
               disabled={pendingChanges.length === 0}
+              onClick={() => {
+                if (pendingChanges.length === 0) return;
+                setDiscardAllDialogOpen(true);
+              }}
             >
               Discard All Changes
             </Button>
@@ -607,6 +618,7 @@ export default function VersionsPage({ params }: VersionsPageProps) {
                     <th className="px-3 py-2 font-medium" style={{ width: '16.66%', minWidth: '120px' }}>Set</th>
                     <th className="px-3 py-2 font-medium" style={{ width: '16.66%', minWidth: '120px' }}>Source</th>
                     <th className="px-3 py-2 font-medium" style={{ width: '16.66%', minWidth: '120px' }}>Time</th>
+                    <th className="px-3 py-2 font-medium text-right" style={{ width: '8%', minWidth: '60px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -659,6 +671,20 @@ export default function VersionsPage({ params }: VersionsPageProps) {
                           {getRelativeTime(change.createdAt)}
                         </div>
                         <div className="text-[10px] text-muted-foreground">by {change.createdBy}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            setSelectedChange(change);
+                            setDiscardDialogOpen(true);
+                          }}
+                          aria-label={`Discard change for ${change.tokenName}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -930,6 +956,113 @@ export default function VersionsPage({ params }: VersionsPageProps) {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Discard single change dialog */}
+      <Dialog
+        open={discardDialogOpen}
+        onOpenChange={(open) => {
+          setDiscardDialogOpen(open);
+          if (!open) {
+            setSelectedChange(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discard this change?</DialogTitle>
+            <DialogDescription>
+              This will remove <span className="font-medium">{selectedChange?.tokenName}</span> from the pending changes list. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDiscardDialogOpen(false)}
+              disabled={discardingChange}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!selectedChange) return;
+                setDiscardingChange(true);
+                try {
+                  const supabase = createSupabaseBrowserClient();
+                  const { error } = await supabase
+                    .from('changes')
+                    .delete()
+                    .eq('id', selectedChange.id);
+
+                  if (error) {
+                    console.error('Error discarding change:', error);
+                  } else {
+                    setPendingChanges((prev) => prev.filter((change) => change.id !== selectedChange.id));
+                    setDiscardDialogOpen(false);
+                    setSelectedChange(null);
+                  }
+                } catch (error) {
+                  console.error('Unexpected error discarding change:', error);
+                } finally {
+                  setDiscardingChange(false);
+                }
+              }}
+              disabled={discardingChange}
+            >
+              {discardingChange ? 'Discarding…' : 'Discard change'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Discard all changes dialog */}
+      <Dialog open={discardAllDialogOpen} onOpenChange={setDiscardAllDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discard all pending changes?</DialogTitle>
+            <DialogDescription>
+              This will remove all pending tokens for this project. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDiscardAllDialogOpen(false)}
+              disabled={discardingAll}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDiscardingAll(true);
+                try {
+                  const supabase = createSupabaseBrowserClient();
+                  const { error } = await supabase
+                    .from('changes')
+                    .delete()
+                    .eq('project_id', projectId)
+                    .is('released_in', null);
+
+                  if (error) {
+                    console.error('Error discarding all changes:', error);
+                  } else {
+                    setPendingChanges([]);
+                    setDiscardAllDialogOpen(false);
+                  }
+                } catch (error) {
+                  console.error('Unexpected error discarding all changes:', error);
+                } finally {
+                  setDiscardingAll(false);
+                }
+              }}
+              disabled={discardingAll}
+            >
+              {discardingAll ? 'Discarding…' : 'Discard all changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

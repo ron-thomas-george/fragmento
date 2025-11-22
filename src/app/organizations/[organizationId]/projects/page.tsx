@@ -59,6 +59,7 @@ export default function OrganizationProjectsPage() {
   const [orgName, setOrgName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadData = async () => {
@@ -108,6 +109,14 @@ export default function OrganizationProjectsPage() {
     router.push(`/onboarding/create-project?organizationId=${organizationId}`);
   };
 
+  const filteredProjects = projects.filter((project) =>
+    project.name?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
+
+  const noProjects = !loading && !error && projects.length === 0;
+  const noMatches =
+    !loading && !error && projects.length > 0 && filteredProjects.length === 0;
+
   return (
     <main className="flex min-h-screen flex-col bg-background px-4 py-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -123,26 +132,39 @@ export default function OrganizationProjectsPage() {
               Manage projects for this organization.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleNewProject}
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            New project
-          </button>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search projects"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-64"
+            />
+            <button
+              type="button"
+              onClick={handleNewProject}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              New project
+            </button>
+          </div>
         </header>
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading projects...</p>
         ) : error ? (
           <p className="text-sm text-destructive">{error}</p>
-        ) : projects.length === 0 ? (
+        ) : noProjects ? (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
             No projects yet. Create your first project to start managing tokens.
           </div>
+        ) : noMatches ? (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+            No projects match “{searchQuery}”.
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {projects.map((project, index) => (
+            {filteredProjects.map((project, index) => (
               <button
                 key={project.id}
                 type="button"
