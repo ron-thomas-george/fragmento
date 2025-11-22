@@ -149,9 +149,6 @@ export default function OrganizationsPage() {
                   <span className="text-sm font-medium text-foreground">
                     {org.name}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatRelativeTime(org.updated_at ?? org.created_at)}
-                  </span>
                 </div>
               </button>
             ))}
