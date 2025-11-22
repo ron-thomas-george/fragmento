@@ -257,6 +257,28 @@
       console.log('User menu clicked');
     }
 
+    function forceEnableLoadButton() {
+      console.log('Force enabling load button');
+      const loadBtn = document.getElementById('loadProjectBtn');
+      const projectSelect = document.getElementById('projectSelect');
+      
+      if (loadBtn) {
+        loadBtn.disabled = false;
+        loadBtn.style.background = 'white';
+        loadBtn.style.color = 'black';
+        loadBtn.style.border = '1px solid #333';
+        loadBtn.style.cursor = 'pointer';
+        loadBtn.style.opacity = '1';
+        console.log('Button force enabled');
+      }
+      
+      if (projectSelect && projects.length > 0) {
+        selectedProject = projects[0].id;
+        projectSelect.value = projects[0].id;
+        console.log('Project selected:', selectedProject);
+      }
+    }
+
     function authenticateWithFragmento() {
       console.log('Authenticate with Fragmento clicked');
       const output = document.getElementById('output');
@@ -358,16 +380,31 @@
             <button id="loadProjectBtn" onclick="loadProject()" disabled style="
               width: 100%; 
               padding: 16px 24px; 
-              background: #333; 
-              color: #666; 
-              border: none; 
+              background: white; 
+              color: black; 
+              border: 1px solid #333; 
               border-radius: 12px; 
               cursor: not-allowed; 
-              font-weight: 600; 
+              font-weight: 500; 
               font-size: 16px;
               transition: all 0.2s ease;
+              opacity: 0.5;
             ">
               Load Project
+            </button>
+            
+            <button onclick="forceEnableLoadButton()" style="
+              width: 100%; 
+              padding: 8px 16px; 
+              background: #666; 
+              color: white; 
+              border: none; 
+              border-radius: 6px; 
+              cursor: pointer; 
+              font-size: 12px;
+              margin-top: 8px;
+            ">
+              Debug: Force Enable Button
             </button>
           </div>
           
@@ -509,7 +546,19 @@
               projectSelect.value = projects[0].id;
               selectedProject = projects[0].id;
               
-              // Trigger onProjectChange to properly enable the button
+              // Directly enable the load button
+              const loadBtn = document.getElementById('loadProjectBtn');
+              if (loadBtn) {
+                loadBtn.disabled = false;
+                loadBtn.style.background = 'white';
+                loadBtn.style.color = 'black';
+                loadBtn.style.border = '1px solid #333';
+                loadBtn.style.cursor = 'pointer';
+                loadBtn.style.opacity = '1';
+                console.log('Load button enabled directly after project selection');
+              }
+              
+              // Also trigger onProjectChange as backup
               setTimeout(() => {
                 onProjectChange();
               }, 100);
@@ -575,9 +624,11 @@
         projectSelect.innerHTML = '<option value="">Select organization first...</option>';
         
         loadBtn.disabled = true;
-        loadBtn.style.background = '#333';
-        loadBtn.style.color = '#666';
+        loadBtn.style.background = 'white';
+        loadBtn.style.color = 'black';
+        loadBtn.style.border = '1px solid #333';
         loadBtn.style.cursor = 'not-allowed';
+        loadBtn.style.opacity = '0.5';
       }
     }
 
@@ -585,45 +636,39 @@
       console.log('onProjectChange called');
       const select = document.getElementById('projectSelect');
       const loadBtn = document.getElementById('loadProjectBtn');
-      const projectInfo = document.getElementById('projectInfo');
-      const projectDetails = document.getElementById('projectDetails');
       
       console.log('Selected project value:', select?.value);
       console.log('Available projects:', projects);
+      console.log('Load button element:', loadBtn);
       
-      if (select && select.value) {
+      if (select && select.value && loadBtn) {
         selectedProject = select.value;
         const project = projects.find(p => p.id === selectedProject);
         
-        if (project) {
-          // Show project info
-          projectInfo.style.display = 'block';
-          projectInfo.innerHTML = `(${project.access_level || 'Can Edit'})`;
-          
-          // Show project details
-          projectDetails.style.display = 'block';
-          document.getElementById('projectDescription').innerHTML = project.description || 'No description available';
-          document.getElementById('projectStats').innerHTML = `
-            • ${project.token_count || 0} tokens across ${project.token_sets || 0} sets<br>
-            • Last release: ${project.latest_version || 'None'}<br>
-            • ${project.pending_changes || 0} pending changes
-          `;
-        }
+        console.log('Found project:', project);
         
         // Enable load button
         loadBtn.disabled = false;
-        loadBtn.style.background = '#007AFF';
-        loadBtn.style.color = 'white';
+        loadBtn.style.background = 'white';
+        loadBtn.style.color = 'black';
+        loadBtn.style.border = '1px solid #333';
         loadBtn.style.cursor = 'pointer';
+        loadBtn.style.opacity = '1';
+        
+        console.log('Button enabled, new styles applied');
       } else {
         selectedProject = null;
-        projectInfo.style.display = 'none';
-        projectDetails.style.display = 'none';
         
-        loadBtn.disabled = true;
-        loadBtn.style.background = '#333';
-        loadBtn.style.color = '#666';
-        loadBtn.style.cursor = 'not-allowed';
+        if (loadBtn) {
+          loadBtn.disabled = true;
+          loadBtn.style.background = 'white';
+          loadBtn.style.color = 'black';
+          loadBtn.style.border = '1px solid #333';
+          loadBtn.style.cursor = 'not-allowed';
+          loadBtn.style.opacity = '0.5';
+        }
+        
+        console.log('Button disabled');
       }
     }
 
