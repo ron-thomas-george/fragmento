@@ -141,7 +141,7 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
 
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .select("id, name, slug, organization_id, organizations ( id, name, plan )")
+        .select("id, name, slug, organization_id")
         .eq("id", projectId)
         .single();
 
@@ -149,23 +149,17 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
         return;
       }
 
-      const typedProject = project as CurrentProject & { organizations?: CurrentOrganization | CurrentOrganization[] };
+      setCurrentProject(project as CurrentProject);
 
-      setCurrentProject({
-        id: typedProject.id,
-        name: typedProject.name,
-        slug: typedProject.slug,
-        organization_id: typedProject.organization_id,
-      });
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .select("id, name, plan")
+        .eq("id", project.organization_id)
+        .single();
 
-      if (typedProject.organizations) {
-        const orgData = Array.isArray(typedProject.organizations)
-          ? typedProject.organizations[0]
-          : typedProject.organizations;
-
-        if (orgData) {
-          setCurrentOrg(orgData);
-        }
+      if (!orgError && org) {
+        console.log('Organization data:', org); // Debug log
+        setCurrentOrg(org as CurrentOrganization);
       }
 
       const { data: projectsForOrg } = await supabase
