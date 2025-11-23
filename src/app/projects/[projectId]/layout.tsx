@@ -176,7 +176,7 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen w-full bg-background">
         <Sidebar collapsible={sidebarCollapsed ? "icon" : "offcanvas"}>
           <SidebarHeader className="relative">
             <button
@@ -424,8 +424,8 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
           </SidebarFooter>
         </Sidebar>
 
-        <div className="flex flex-1 flex-col">
-          <main className="flex-1 bg-background">{children}</main>
+        <div className="flex flex-1 min-w-0 flex-col">
+          <main className="flex-1 min-w-0 bg-background">{children}</main>
         </div>
       </div>
     </SidebarProvider>

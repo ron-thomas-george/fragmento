@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { X, Check, AlertCircle, MoreHorizontal, Edit, Trash2, Plus, Search, Filter } from "lucide-react";
+import { toast } from "sonner";
 
 interface TokenSet {
   id: string;
@@ -46,7 +47,6 @@ export default function TokensPage() {
   const [projectName, setProjectName] = useState<string>("");
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingToken, setEditingToken] = useState<TokenRow | null>(null);
@@ -978,10 +978,11 @@ export default function TokensPage() {
       await refreshTokens(selectedSetId);
       setDialogOpen(false);
       setSaving(false);
-      setSuccessMessage(editingToken ? "Token updated successfully" : "Token created successfully");
+      toast.success(editingToken ? "Token updated successfully" : "Token created successfully");
     } catch (err) {
       setError("Failed to save token.");
       setSaving(false);
+      toast.error("Failed to save token");
     }
   };
 
@@ -1080,7 +1081,7 @@ export default function TokensPage() {
       }
 
       await refreshTokens(selectedSetId);
-      setSuccessMessage("Token deleted successfully");
+      toast.success("Token deleted successfully");
     } catch (err) {
       setError("Failed to delete token.");
     }
@@ -1182,7 +1183,7 @@ export default function TokensPage() {
       // Select the new set
       setSelectedSetId(newSet.id);
       
-      setSuccessMessage("Token set created successfully");
+      toast.success("Token set created successfully");
       closeNewSetDialog();
     } catch (err) {
       setError("Failed to create token set.");
@@ -1292,8 +1293,6 @@ export default function TokensPage() {
 
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
-          ) : successMessage ? (
-            <p className="text-sm text-emerald-600">{successMessage}</p>
           ) : null}
 
           <div className="rounded-md border w-full overflow-x-auto" style={{ minWidth: '100%' }}>
