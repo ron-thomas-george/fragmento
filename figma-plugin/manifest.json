@@ -1,11 +1,10 @@
 {
   "name": "Fragmento",
-  "id": "fragmento-design-tokens",
+  "id": "1574365494469384127",
   "api": "1.0.0",
   "main": "dist/plugin.js",
   "ui": "dist/index.html",
   "capabilities": [],
-  "enableProposedApi": false,
   "editorType": [
     "figma"
   ],
@@ -15,5 +14,6 @@
       "https://api.fragmento.app",
       "https://fragmento-theta.vercel.app"
     ]
-  }
+  },
+  "documentAccess": "dynamic-page"
 }

@@ -150,20 +150,6 @@
         case "fetch-organizations":
           await handleFetchOrganizations(msg.payload.authToken);
           break;
-        case "show-project-selector":
-          {
-            const storedToken2 = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
-            if (storedToken2) {
-              const authToken = JSON.parse(storedToken2);
-              await handleFetchOrganizations(authToken);
-            } else {
-              figma.ui.postMessage({
-                type: "logout-success",
-                payload: { message: "Session expired" }
-              });
-            }
-          }
-          break;
         case "fetch-projects":
           const storedToken = await figma.clientStorage.getAsync(AUTH_TOKEN_KEY);
           if (storedToken) {
@@ -596,14 +582,14 @@
   }
   async function saveCurrentStateAsLastPushed(tokenSets) {
     try {
-      const collections = figma.variables.getLocalVariableCollections();
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
       const currentState = {
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-        collections: collections.map((collection) => ({
+        collections: await Promise.all(collections.map(async (collection) => ({
           id: collection.id,
           name: collection.name,
-          variables: collection.variableIds.map((id) => {
-            const variable = figma.variables.getVariableById(id);
+          variables: (await Promise.all(collection.variableIds.map(async (id) => {
+            const variable = await figma.variables.getVariableByIdAsync(id);
             if (!variable)
               return null;
             const modes = Object.keys(variable.valuesByMode);
@@ -612,7 +598,7 @@
             if (modes.length > 0) {
               const defaultValue = variable.valuesByMode[modes[0]];
               if (typeof defaultValue === "object" && "type" in defaultValue && defaultValue.type === "VARIABLE_ALIAS") {
-                const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+                const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
                 value = aliasVariable ? `{${aliasVariable.name}}` : "unknown";
                 tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
               } else {
@@ -638,8 +624,8 @@
               tokenType,
               value
             };
-          }).filter(Boolean)
-        }))
+          }))).filter(Boolean)
+        })))
       };
       await figma.clientStorage.setAsync(LAST_PUSHED_STATE_KEY, JSON.stringify(currentState));
       console.log("Saved current state as last pushed state");
@@ -685,15 +671,15 @@
   async function handleScanVariables() {
     try {
       console.log("Scanning Figma variables...");
-      const collections = figma.variables.getLocalVariableCollections();
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
       console.log("Found collections:", collections.length);
       const lastPushedStateStr = await figma.clientStorage.getAsync(LAST_PUSHED_STATE_KEY);
       const lastPushedState = lastPushedStateStr ? JSON.parse(lastPushedStateStr) : null;
       const processedCollections = [];
       let totalVariableCount = 0;
       for (const collection of collections) {
-        const variables = collection.variableIds.map((id) => {
-          const variable = figma.variables.getVariableById(id);
+        const variables = (await Promise.all(collection.variableIds.map(async (id) => {
+          const variable = await figma.variables.getVariableByIdAsync(id);
           if (!variable)
             return null;
           let value = "";
@@ -707,7 +693,7 @@
             const defaultValue = variable.valuesByMode[modes[0]];
             if (typeof defaultValue === "object" && "type" in defaultValue && defaultValue.type === "VARIABLE_ALIAS") {
               isAlias = true;
-              const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+              const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
               aliasName = aliasVariable ? aliasVariable.name : "unknown";
               value = `{${aliasName}}`;
               tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
@@ -748,7 +734,7 @@
             hasWarning,
             warningMessage
           };
-        }).filter(Boolean);
+        }))).filter(Boolean);
         totalVariableCount += variables.length;
         processedCollections.push({
           id: collection.id,
@@ -790,16 +776,17 @@
       const authToken = JSON.parse(storedToken);
       const project = JSON.parse(storedProject);
       const variablesToImport = [];
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
       for (const selection of selectedVariables) {
-        const variable = figma.variables.getVariableById(selection.variableId);
-        const collection = figma.variables.getLocalVariableCollections().find((c) => c.id === selection.collectionId);
+        const variable = await figma.variables.getVariableByIdAsync(selection.variableId);
+        const collection = collections.find((c) => c.id === selection.collectionId);
         if (variable && collection) {
           const modes = Object.keys(variable.valuesByMode);
           let value = "";
           if (modes.length > 0) {
             const defaultValue = variable.valuesByMode[modes[0]];
             if (typeof defaultValue === "object" && "type" in defaultValue && defaultValue.type === "VARIABLE_ALIAS") {
-              const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+              const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
               value = aliasVariable ? `{${aliasVariable.name}}` : "unknown";
             } else if (variable.resolvedType === "COLOR" && typeof defaultValue === "object" && "r" in defaultValue) {
               const r = Math.round(defaultValue.r * 255);
@@ -846,9 +833,10 @@
       const authToken = JSON.parse(storedToken);
       const project = JSON.parse(storedProject);
       const collectionMap = /* @__PURE__ */ new Map();
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
       for (const selection of selectedVariables) {
-        const variable = figma.variables.getVariableById(selection.variableId);
-        const collection = figma.variables.getLocalVariableCollections().find((c) => c.id === selection.collectionId);
+        const variable = await figma.variables.getVariableByIdAsync(selection.variableId);
+        const collection = collections.find((c) => c.id === selection.collectionId);
         if (variable && collection) {
           if (!collectionMap.has(collection.id)) {
             collectionMap.set(collection.id, {
@@ -863,7 +851,7 @@
           if (modes.length > 0) {
             const defaultValue = variable.valuesByMode[modes[0]];
             if (typeof defaultValue === "object" && "type" in defaultValue && defaultValue.type === "VARIABLE_ALIAS") {
-              const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+              const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
               value = aliasVariable ? `{${aliasVariable.name}}` : "unknown";
               tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
             } else {

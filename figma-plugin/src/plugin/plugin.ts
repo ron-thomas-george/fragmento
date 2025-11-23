@@ -725,14 +725,14 @@ function detectChanges(currentCollections: any[], lastPushedState: any) {
 async function saveCurrentStateAsLastPushed(tokenSets: any[]) {
   try {
     // Get current collections and variables
-    const collections = figma.variables.getLocalVariableCollections();
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
     const currentState = {
       timestamp: new Date().toISOString(),
-      collections: collections.map(collection => ({
+      collections: await Promise.all(collections.map(async collection => ({
         id: collection.id,
         name: collection.name,
-        variables: collection.variableIds.map(id => {
-          const variable = figma.variables.getVariableById(id);
+        variables: (await Promise.all(collection.variableIds.map(async id => {
+          const variable = await figma.variables.getVariableByIdAsync(id);
           if (!variable) return null;
           
           // Get the default value
@@ -744,7 +744,7 @@ async function saveCurrentStateAsLastPushed(tokenSets: any[]) {
             const defaultValue = variable.valuesByMode[modes[0]];
             
             if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
-              const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+              const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
               value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
               tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
             } else {
@@ -772,8 +772,8 @@ async function saveCurrentStateAsLastPushed(tokenSets: any[]) {
             tokenType,
             value
           };
-        }).filter(Boolean)
-      }))
+        })) ).filter(Boolean)
+      })))
     };
     
     await figma.clientStorage.setAsync(LAST_PUSHED_STATE_KEY, JSON.stringify(currentState));
@@ -839,7 +839,7 @@ async function handleScanVariables() {
     console.log('Scanning Figma variables...');
     
     // Get all local variable collections
-    const collections = figma.variables.getLocalVariableCollections();
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
     console.log('Found collections:', collections.length);
     
     // Get last pushed state for comparison
@@ -850,8 +850,8 @@ async function handleScanVariables() {
     let totalVariableCount = 0;
     
     for (const collection of collections) {
-      const variables = collection.variableIds.map(id => {
-        const variable = figma.variables.getVariableById(id);
+      const variables = (await Promise.all(collection.variableIds.map(async id => {
+        const variable = await figma.variables.getVariableByIdAsync(id);
         if (!variable) return null;
         
         // Process variable value and detect token type
@@ -870,7 +870,7 @@ async function handleScanVariables() {
           if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
             // This is an alias
             isAlias = true;
-            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
             aliasName = aliasVariable ? aliasVariable.name : 'unknown';
             value = `{${aliasName}}`;
             tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
@@ -916,7 +916,7 @@ async function handleScanVariables() {
           hasWarning,
           warningMessage
         };
-      }).filter(Boolean);
+      })) ).filter(Boolean);
       
       totalVariableCount += variables.length;
       
@@ -974,10 +974,10 @@ async function handleImportVariables(selectedVariables: Array<{collectionId: str
     // Process selected variables
     const variablesToImport = [];
     
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
     for (const selection of selectedVariables) {
-      const variable = figma.variables.getVariableById(selection.variableId);
-      const collection = figma.variables.getLocalVariableCollections()
-        .find(c => c.id === selection.collectionId);
+      const variable = await figma.variables.getVariableByIdAsync(selection.variableId);
+      const collection = collections.find(c => c.id === selection.collectionId);
       
       if (variable && collection) {
         // Get variable value (simplified for now)
@@ -988,7 +988,7 @@ async function handleImportVariables(selectedVariables: Array<{collectionId: str
           const defaultValue = variable.valuesByMode[modes[0]];
           
           if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
-            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
             value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
           } else if (variable.resolvedType === 'COLOR' && typeof defaultValue === 'object' && 'r' in defaultValue) {
             const r = Math.round(defaultValue.r * 255);
@@ -1049,10 +1049,10 @@ async function handlePushSelectedVariables(selectedVariables: Array<{collectionI
     // Process selected variables with collection mapping
     const collectionMap = new Map();
     
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
     for (const selection of selectedVariables) {
-      const variable = figma.variables.getVariableById(selection.variableId);
-      const collection = figma.variables.getLocalVariableCollections()
-        .find(c => c.id === selection.collectionId);
+      const variable = await figma.variables.getVariableByIdAsync(selection.variableId);
+      const collection = collections.find(c => c.id === selection.collectionId);
       
       if (variable && collection) {
         if (!collectionMap.has(collection.id)) {
@@ -1072,7 +1072,7 @@ async function handlePushSelectedVariables(selectedVariables: Array<{collectionI
           const defaultValue = variable.valuesByMode[modes[0]];
           
           if (typeof defaultValue === 'object' && 'type' in defaultValue && defaultValue.type === 'VARIABLE_ALIAS') {
-            const aliasVariable = figma.variables.getVariableById(defaultValue.id);
+            const aliasVariable = await figma.variables.getVariableByIdAsync(defaultValue.id);
             value = aliasVariable ? `{${aliasVariable.name}}` : 'unknown';
             tokenType = mapFigmaTypeToFragmento(variable.resolvedType).type;
           } else {
