@@ -8,12 +8,18 @@ export default function Home() {
       <header className="border-b">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-primary-foreground">
-                <rect width="32" height="32" rx="8" fill="currentColor"/>
-                <path d="M8 12h16v2H8v-2zm0 4h12v2H8v-2zm0 4h8v2H8v-2z" fill="white"/>
-              </svg>
-            </div>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M17.1834 0.585787C16.8083 0.210715 16.2996 0 15.7692 0H8.23084C7.70041 0 7.19171 0.210713 6.81663 0.585785L0.585787 6.81662C0.210714 7.19169 0 7.7004 0 8.23083V15.7692C0 16.2996 0.210714 16.8083 0.585786 17.1834L6.81663 23.4142C7.19171 23.7893 7.70041 24 8.23085 24H15.7692C16.2996 24 16.8083 23.7893 17.1834 23.4142L23.4142 17.1834C23.7893 16.8083 24 16.2996 24 15.7692V8.23083C24 7.7004 23.7893 7.19169 23.4142 6.81662L17.1834 0.585787ZM8.6747 16.7132L5.34675 13.3853C4.5657 12.6042 4.5657 11.3379 5.34675 10.5569L8.6747 7.22892C10.4675 5.43614 13.4169 5.43614 15.2096 7.22892L18.5376 10.5569C19.3186 11.3379 19.3186 12.6042 18.5376 13.3853L15.2096 16.7132C13.4169 18.506 10.5253 18.506 8.6747 16.7132Z"
+                fill="black"
+              />
+            </svg>
             <span className="text-xl font-bold">Fragmento</span>
           </div>
           <div className="flex items-center space-x-4">
@@ -95,9 +101,9 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                     </svg>
                   </div>
-                  <h3 className="mt-4 text-lg font-semibold">Multi-Platform Export</h3>
+                  <h3 className="mt-4 text-lg font-semibold">Shadcn-ready exports</h3>
                   <p className="mt-2 text-muted-foreground">
-                    Export to CSS, SCSS, JavaScript, iOS, Android, and more. One source of truth for all platforms.
+                    Generate CSS variables already formatted for shadcn/ui themes, so your tokens drop straight into production UIs.
                   </p>
                 </div>
               </div>
@@ -130,16 +136,22 @@ export default function Home() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="h-6 w-6 rounded bg-primary flex items-center justify-center">
-                <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="text-primary-foreground">
-                  <rect width="32" height="32" rx="8" fill="currentColor"/>
-                  <path d="M8 12h16v2H8v-2zm0 4h12v2H8v-2zm0 4h8v2H8v-2z" fill="white"/>
-                </svg>
-              </div>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M17.1834 0.585787C16.8083 0.210715 16.2996 0 15.7692 0H8.23084C7.70041 0 7.19171 0.210713 6.81663 0.585785L0.585787 6.81662C0.210714 7.19169 0 7.7004 0 8.23083V15.7692C0 16.2996 0.210714 16.8083 0.585786 17.1834L6.81663 23.4142C7.19171 23.7893 7.70041 24 8.23085 24H15.7692C16.2996 24 16.8083 23.7893 17.1834 23.4142L23.4142 17.1834C23.7893 16.8083 24 16.2996 24 15.7692V8.23083C24 7.7004 23.7893 7.19169 23.4142 6.81662L17.1834 0.585787ZM8.6747 16.7132L5.34675 13.3853C4.5657 12.6042 4.5657 11.3379 5.34675 10.5569L8.6747 7.22892C10.4675 5.43614 13.4169 5.43614 15.2096 7.22892L18.5376 10.5569C19.3186 11.3379 19.3186 12.6042 18.5376 13.3853L15.2096 16.7132C13.4169 18.506 10.5253 18.506 8.6747 16.7132Z"
+                  fill="black"
+                />
+              </svg>
               <span className="font-semibold">Fragmento</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 Fragmento. All rights reserved.
+              © 2025 Fragmento. All rights reserved.
             </p>
           </div>
         </div>
