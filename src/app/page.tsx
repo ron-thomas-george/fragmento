@@ -45,13 +45,14 @@ export default function Home() {
               Bridge the gap between design and development with a comprehensive design token management platform. 
               Sync from Figma, version with confidence, and deploy to any platform.
             </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-x-6">
+            <div className="mt-10 flex w-full flex-col items-center gap-3 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-x-6">
               <Link
                 href="https://www.figma.com/community/plugin/1574365494469384127/fragmento"
                 target="_blank"
                 rel="noreferrer"
+                className="w-full max-w-[250px] sm:w-auto"
               >
-                <Button size="lg" className="h-[54px] px-8 text-base">
+                <Button size="lg" className="h-[54px] w-full text-base sm:w-auto">
                   Try Plugin
                 </Button>
               </Link>
@@ -59,14 +60,14 @@ export default function Home() {
                 href="https://www.producthunt.com/products/fragmento?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-fragmento"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-[54px] items-center"
+                className="inline-flex h-[54px] w-full max-w-[250px] items-center justify-center sm:w-auto"
               >
                 <img
                   src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1041427&theme=light&t=1765024078862"
                   alt="Fragmento - Sync design tokens to shadcn with version control | Product Hunt"
                   width={250}
                   height={54}
-                  style={{ width: 250, height: 54 }}
+                  style={{ width: "100%", height: 54 }}
                 />
               </a>
             </div>
@@ -147,7 +148,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t bg-muted/50">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:gap-2 sm:text-left">
             <div className="flex items-center space-x-2">
               <svg
                 width="28"
