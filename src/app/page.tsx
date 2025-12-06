@@ -136,7 +136,7 @@ export default function Home() {
             </p>
             <div className="mt-8">
               <Link href="/signup">
-                <Button size="lg" className="text-base">
+                <Button size="lg" className="h-[54px] px-6 text-base">
                   Get started for free
                 </Button>
               </Link>
