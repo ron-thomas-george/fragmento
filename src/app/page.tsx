@@ -45,17 +45,30 @@ export default function Home() {
               Bridge the gap between design and development with a comprehensive design token management platform. 
               Sync from Figma, version with confidence, and deploy to any platform.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Link href="/signup">
-                <Button size="lg" className="text-base">
-                  Start for free
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-x-6">
+              <Link
+                href="https://www.figma.com/community/plugin/1574365494469384127/fragmento"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Button size="lg" className="h-[54px] px-8 text-base">
+                  Try Plugin
                 </Button>
               </Link>
-              <Link href="#features">
-                <Button variant="outline" size="lg" className="text-base">
-                  Learn more
-                </Button>
-              </Link>
+              <a
+                href="https://www.producthunt.com/products/fragmento?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-fragmento"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-[54px] items-center"
+              >
+                <img
+                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1041427&theme=light&t=1765024078862"
+                  alt="Fragmento - Sync design tokens to shadcn with version control | Product Hunt"
+                  width={250}
+                  height={54}
+                  style={{ width: 250, height: 54 }}
+                />
+              </a>
             </div>
           </div>
         </section>
