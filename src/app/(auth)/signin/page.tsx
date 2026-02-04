@@ -1,29 +1,32 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signInSchema, SignInValues } from "@/lib/validations/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { FormInput } from "@/components/form-input";
 import { AuthLayout } from "../AuthLayout";
 
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignInValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
   const handleGoogleSignIn = async () => {
-    setError(null);
     setLoading(true);
 
     try {
@@ -36,127 +39,136 @@ export default function SignInPage() {
       });
 
       if (oauthError) {
-        setError(oauthError.message);
+        toast.error(oauthError.message);
         setLoading(false);
       }
       // On success Supabase will redirect, so we don't manually push here.
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
+  const onSubmit = async (data: SignInValues) => {
     setLoading(true);
 
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: data.email,
+        password: data.password,
       });
 
       if (signInError) {
-        setError(signInError.message);
+        toast.error(signInError.message);
         setLoading(false);
         return;
       }
 
       router.push("/organizations");
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
 
   return (
     <AuthLayout>
-      <Card className="rounded-xl border bg-card/95 backdrop-blur">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Sign in to Fragmento</CardTitle>
-            <CardDescription>
-              Access your design token projects and releases.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-center"
-                disabled={loading}
-                onClick={handleGoogleSignIn}
-              >
-                Continue with Google
-              </Button>
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-left">
+          <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Access your design token projects and releases.
+          </p>
+        </div>
 
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <div className="h-px flex-1 bg-border" />
-                <span>or continue with email</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            </div>
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <FormInput
+            id="email"
+            label="Email"
+            type="email"
+            placeholder="Enter your email"
+            registration={register("email")}
+            error={errors.email}
+          />
 
-            <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-              <div className="space-y-1 text-left">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1 text-left">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-input"
-                  />
-                  <span>Remember me for 30 days</span>
-                </div>
-                <a
-                  href="/forgot-password"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Forgot password?
-                </a>
-              </div>
-
-              {error ? (
-                <p className="text-xs text-destructive">{error}</p>
-              ) : null}
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Continue"}
-              </Button>
-            </form>
-
-            <div className="mt-4 text-center text-xs text-muted-foreground">
-              Don&apos;t have an account?{" "}
+          <FormInput
+            id="password"
+            label="Password"
+            type="password"
+            placeholder="Enter password"
+            registration={register("password")}
+            error={errors.password}
+          >
+            <div className="flex justify-end">
               <a
-                href="/signup"
-                className="font-medium text-primary underline-offset-4 hover:underline"
+                href="/forgot-password"
+                className="text-xs font-medium text-muted-foreground hover:text-slate-900"
               >
-                Sign up
+                Forgot password?
               </a>
             </div>
-          </CardContent>
-        </Card>
+          </FormInput>
+
+          <button
+            type="submit"
+            disabled={loading || isSubmitting}
+            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition-colors hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+          >
+            {loading || isSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="text-xs text-muted-foreground uppercase">OR</span>
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-full justify-center gap-2 border-slate-200 bg-white font-medium text-slate-700 hover:bg-slate-50"
+          disabled={loading}
+          onClick={handleGoogleSignIn}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M19.6 10.2273C19.6 9.51818 19.5364 8.83636 19.4182 8.18182H10V12.05H15.3818C15.15 13.2955 14.4409 14.35 13.3864 15.0545V17.5545H16.6182C18.5091 15.8136 19.6 13.25 19.6 10.2273Z"
+              fill="#4285F4"
+            />
+            <path
+              d="M10 20C12.7 20 14.9636 19.1045 16.6182 17.5545L13.3864 15.0545C12.4909 15.6545 11.3455 16.0091 10 16.0091C7.39545 16.0091 5.19091 14.25 4.40455 11.8864H1.05909V14.4773C2.70909 17.7545 6.09091 20 10 20Z"
+              fill="#34A853"
+            />
+            <path
+              d="M4.40455 11.8864C4.20455 11.2864 4.09091 10.65 4.09091 10C4.09091 9.35 4.20455 8.71364 4.40455 8.11364V5.52273H1.05909C0.386364 6.86364 0 8.38636 0 10C0 11.6136 0.386364 13.1364 1.05909 14.4773L4.40455 11.8864Z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M10 3.99091C11.4682 3.99091 12.7864 4.49545 13.8227 5.48636L16.6909 2.61818C14.9591 1.00455 12.6955 0 10 0C6.09091 0 2.70909 2.24545 1.05909 5.52273L4.40455 8.11364C5.19091 5.75 7.39545 3.99091 10 3.99091Z"
+              fill="#EA4335"
+            />
+          </svg>
+          Continue with Google
+        </Button>
+
+        <div className="mt-8 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <a
+            href="/signup"
+            className="font-semibold text-slate-950 hover:underline"
+          >
+            Sign up
+          </a>
+        </div>
+      </div>
     </AuthLayout>
   );
 }
