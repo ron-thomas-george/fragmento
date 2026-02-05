@@ -16,7 +16,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       </div>
 
       <div className="relative hidden flex-1 p-6 md:flex">
-        <div className="absolute inset-6 rounded-3xl bg-linear-to-br from-pink-300 via-rose-300 to-indigo-500" />
+        <div
+          className="absolute inset-6 rounded-3xl"
+          style={{
+            background:
+              "linear-gradient(180deg, #D6C9FD 0%, #FB9195 50%, #7B61FF 100%)",
+          }}
+        />
 
         <div className="relative z-10 flex h-full w-full items-center justify-center">
           <Image
