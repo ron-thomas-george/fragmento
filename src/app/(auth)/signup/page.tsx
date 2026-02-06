@@ -1,44 +1,35 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signUpSchema, SignUpValues } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormInput } from "@/components/form-input";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { AuthLayout } from "../AuthLayout";
+import AuthHeader from "@/components/auth/auth-header";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const validatePassword = () => {
-    if (!password || password.length < 8) {
-      return "Password must be at least 8 characters long.";
-    }
-
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[^A-Za-z0-9]/.test(password);
-
-    if (!hasUppercase || !hasNumber || !hasSpecial) {
-      return "Password must include at least one uppercase letter, one number, and one special character.";
-    }
-
-    if (password !== confirmPassword) {
-      return "Passwords do not match.";
-    }
-
-    return null;
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignUpValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   const handleGoogleSignUp = async () => {
-    setError(null);
     setLoading(true);
 
     try {
@@ -51,155 +42,146 @@ export default function SignUpPage() {
       });
 
       if (oauthError) {
-        setError(oauthError.message);
+        toast.error(oauthError.message);
         setLoading(false);
       }
       // On success Supabase will redirect.
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
+  const onSubmit = async (data: SignUpValues) => {
     setLoading(true);
-
-    const passwordError = validatePassword();
-    if (passwordError) {
-      setError(passwordError);
-      setLoading(false);
-      return;
-    }
 
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+        email: data.email,
+        password: data.password,
         options: {
           data: {
-            full_name: name,
+            full_name: data.name,
           },
         },
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        toast.error(signUpError.message);
         setLoading(false);
         return;
       }
 
-      router.push("/onboarding/create-organization");
+      router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-left">
-          <h1 className="text-2xl font-semibold tracking-tight">Create your Fragmento account</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Get started with centralized design token management.
-          </p>
+      <div className="w-full max-w-sm">
+        <AuthHeader
+          title="Sign up"
+          description="Get started with centralized design token management."
+        />
+
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <FormInput
+            id="name"
+            label="Full Name"
+            type="text"
+            placeholder="Enter your full name"
+            registration={register("name")}
+            error={errors.name}
+          />
+
+          <FormInput
+            id="email"
+            label="Email"
+            type="email"
+            placeholder="Enter your email"
+            registration={register("email")}
+            error={errors.email}
+          />
+
+          <FormInput
+            id="password"
+            label="Password"
+            type="password"
+            placeholder="Enter password"
+            registration={register("password")}
+            error={errors.password}
+          />
+
+          <FormInput
+            id="confirm-password"
+            label="Confirm Password"
+            type="password"
+            placeholder="Confirm password"
+            registration={register("confirmPassword")}
+            error={errors.confirmPassword}
+          />
+
+          <Button
+            type="submit"
+            disabled={loading || isSubmitting}
+            className=" h-11 w-full cursor-pointer"
+          >
+            {loading || isSubmitting ? "Creating account..." : "Create account"}
+          </Button>
+        </form>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-slate-200" />
+          <span className="text-xs text-muted-foreground uppercase">OR</span>
+          <div className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <div className="rounded-lg border bg-card p-6">
-          <div className="space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-center"
-              disabled={loading}
-              onClick={handleGoogleSignUp}
-            >
-              Continue with Google
-            </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 w-full cursor-pointer"
+          disabled={loading}
+          onClick={handleGoogleSignUp}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M19.6 10.2273C19.6 9.51818 19.5364 8.83636 19.4182 8.18182H10V12.05H15.3818C15.15 13.2955 14.4409 14.35 13.3864 15.0545V17.5545H16.6182C18.5091 15.8136 19.6 13.25 19.6 10.2273Z"
+              fill="#4285F4"
+            />
+            <path
+              d="M10 20C12.7 20 14.9636 19.1045 16.6182 17.5545L13.3864 15.0545C12.4909 15.6545 11.3455 16.0091 10 16.0091C7.39545 16.0091 5.19091 14.25 4.40455 11.8864H1.05909V14.4773C2.70909 17.7545 6.09091 20 10 20Z"
+              fill="#34A853"
+            />
+            <path
+              d="M4.40455 11.8864C4.20455 11.2864 4.09091 10.65 4.09091 10C4.09091 9.35 4.20455 8.71364 4.40455 8.11364V5.52273H1.05909C0.386364 6.86364 0 8.38636 0 10C0 11.6136 0.386364 13.1364 1.05909 14.4773L4.40455 11.8864Z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M10 3.99091C11.4682 3.99091 12.7864 4.49545 13.8227 5.48636L16.6909 2.61818C14.9591 1.00455 12.6955 0 10 0C6.09091 0 2.70909 2.24545 1.05909 5.52273L4.40455 8.11364C5.19091 5.75 7.39545 3.99091 10 3.99091Z"
+              fill="#EA4335"
+            />
+          </svg>
+          Sign up with Google
+        </Button>
 
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <div className="h-px flex-1 bg-border" />
-              <span>or continue with email</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-          </div>
-
-          <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-1 text-left">
-              <Label className="text-sm font-medium" htmlFor="name">
-                Full name
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Jane Doe"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1 text-left">
-              <Label className="text-sm font-medium" htmlFor="email">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1 text-left">
-              <Label className="text-sm font-medium" htmlFor="password">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1 text-left">
-              <Label className="text-sm font-medium" htmlFor="confirm-password">
-                Confirm password
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Use at least 8 characters, including one uppercase letter, one number, and one special character.
-              </p>
-            </div>
-
-            {error ? (
-              <p className="text-xs text-destructive">{error}</p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-70"
-            >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </form>
-
-          <div className="mt-4 text-center text-xs text-muted-foreground">
-            Already have an account?{' '}
-            <a href="/signin" className="font-medium text-primary underline-offset-4 hover:underline">
-              Sign in
-            </a>
-          </div>
+        <div className="mt-8 text-center text-sm text-muted-foreground">
+          Already have an account?&nbsp;
+          <a
+            href="/signin"
+            className="font-semibold text-slate-950 hover:underline"
+          >
+            Log in
+          </a>
         </div>
       </div>
     </AuthLayout>
