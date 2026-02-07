@@ -26,7 +26,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
         <div className="relative z-10 flex h-full w-full items-center justify-center">
           <Image
-            src="/fragmentoicon.svg"
+            src="/whiteLogo.svg"
             alt="Fragmento Logo"
             width={100}
             height={100}
