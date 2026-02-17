@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -8,7 +9,7 @@ import { AuthActionCard } from "@/components/auth/auth-action-card";
 import { toast } from "sonner";
 import OnboardingLogo from "@/components/auth/onboarding-logo";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -84,5 +85,19 @@ export default function VerifyEmailPage() {
         }
       />
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          Loading...
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
