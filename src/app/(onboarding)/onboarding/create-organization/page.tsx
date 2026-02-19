@@ -1,20 +1,45 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import OnboardingLogo from "@/components/auth/onboarding-logo";
+import UserProfileMenu from "@/components/auth/user-profile-menu";
+import type { User } from "@supabase/supabase-js";
+
+const BACKGROUND_GRADIENT =
+  "linear-gradient(180deg, #D6C9FD 1%, #E1D7FB 4%, #F7F5F2 100%)";
+const NAME_MIN_LENGTH = 3;
+const NAME_MAX_LENGTH = 50;
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  useEffect(() => {
+    const loadUser = async () => {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
+        router.push("/signin");
+        return;
+      }
+      setUser(user);
+    };
+    void loadUser();
+  }, [router]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
     setError(null);
     setLoading(true);
 
@@ -24,17 +49,19 @@ export default function CreateOrganizationPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
-
       if (userError || !user) {
         setError("You need to be signed in to create an organization.");
-        setLoading(false);
         return;
       }
 
       const trimmedName = name.trim();
-      if (trimmedName.length < 3 || trimmedName.length > 50) {
-        setError("Organization name must be between 3 and 50 characters.");
-        setLoading(false);
+      if (
+        trimmedName.length < NAME_MIN_LENGTH ||
+        trimmedName.length > NAME_MAX_LENGTH
+      ) {
+        setError(
+          `Organization name must be between ${NAME_MIN_LENGTH} and ${NAME_MAX_LENGTH} characters.`,
+        );
         return;
       }
 
@@ -46,13 +73,10 @@ export default function CreateOrganizationPage() {
 
       if (existingError) {
         setError(existingError.message);
-        setLoading(false);
         return;
       }
-
-      if (existingOrgs && existingOrgs.length > 0) {
+      if (existingOrgs?.length) {
         setError("You already have an organization with this name.");
-        setLoading(false);
         return;
       }
 
@@ -64,28 +88,42 @@ export default function CreateOrganizationPage() {
 
       if (insertError || !data) {
         setError(insertError?.message ?? "Could not create organization.");
-        setLoading(false);
         return;
       }
 
       router.push(`/onboarding/select-plan?organizationId=${data.id}`);
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-lg">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Create your organization</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Organizations group projects, team members, and integrations.
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col bg-background">
+      <div
+        className="absolute inset-0 z-0 opacity-80"
+        style={{ background: BACKGROUND_GRADIENT }}
+      />
+      <header className="relative z-10 flex w-full items-center justify-between px-8 py-6">
+        <OnboardingLogo />
+        <UserProfileMenu
+          name={user?.user_metadata?.full_name || "User"}
+          email={user?.email}
+        />
+      </header>
 
-        <div className="rounded-lg border bg-card p-6">
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4">
+        <div className="w-full max-w-lg">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Create your organization
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Organizations group projects, team members, and integrations.
+            </p>
+          </div>
+
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-1 text-left">
               <Label className="text-sm font-medium" htmlFor="name">
@@ -94,22 +132,25 @@ export default function CreateOrganizationPage() {
               <Input
                 id="name"
                 type="text"
-                placeholder="Acme Design Systems"
+                placeholder="Acme Design"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-white"
               />
             </div>
 
-            {error ? (
-              <p className="text-xs text-destructive">{error}</p>
-            ) : null}
+            {error && <p className="text-xs text-destructive">{error}</p>}
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-slate-950 text-white hover:bg-slate-900"
+            >
               {loading ? "Creating organization..." : "Create organization"}
             </Button>
           </form>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
