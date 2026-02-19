@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabaseServer';
+import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { verify } from 'jsonwebtoken';
 
 // CORS headers for Figma plugin
@@ -45,9 +45,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+
     let supabase;
     try {
-      supabase = await createSupabaseServerClient();
+      supabase = createSupabaseAdminClient();
       console.log('Supabase client created successfully');
     } catch (supabaseError) {
       console.error('Failed to create Supabase client:', supabaseError);
