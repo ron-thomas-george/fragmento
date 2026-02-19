@@ -72,9 +72,10 @@ export default function OrganizationProjectsPage() {
           .eq("id", organizationId)
           .single();
 
-        if (orgError) {
-          setError(orgError.message);
+
+        if (orgError || !org) {
           setLoading(false);
+          router.replace("/organizations");
           return;
         }
 
