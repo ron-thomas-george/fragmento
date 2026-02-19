@@ -10,6 +10,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/form-input";
 import { AuthLayout } from "../AuthLayout";
+import AuthHeader from "@/components/auth/auth-header";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -75,12 +76,10 @@ export default function SignInPage() {
   return (
     <AuthLayout>
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-left">
-          <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Access your design token projects and releases.
-          </p>
-        </div>
+        <AuthHeader
+          title="Sign in"
+          description="Access your design token projects and releases."
+        />
 
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <FormInput
@@ -110,13 +109,14 @@ export default function SignInPage() {
             </div>
           </FormInput>
 
-          <button
+          <Button
+            className="h-10 w-full cursor-pointer"
             type="submit"
+            variant="default"
             disabled={loading || isSubmitting}
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-medium text-white transition-colors hover:bg-slate-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
           >
             {loading || isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
+          </Button>
         </form>
 
         <div className="my-6 flex items-center gap-3">
@@ -128,7 +128,7 @@ export default function SignInPage() {
         <Button
           type="button"
           variant="outline"
-          className="h-10 w-full justify-center gap-2 border-slate-200 bg-white font-medium text-slate-700 hover:bg-slate-50"
+          className="h-10 w-full cursor-pointer"
           disabled={loading}
           onClick={handleGoogleSignIn}
         >
@@ -160,7 +160,7 @@ export default function SignInPage() {
         </Button>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
+          Don&apos;t have an account?&nbsp;
           <a
             href="/signup"
             className="font-semibold text-slate-950 hover:underline"
