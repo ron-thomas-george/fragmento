@@ -146,6 +146,7 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
         .single();
 
       if (projectError || !project) {
+        router.replace("/organizations");
         return;
       }
 
