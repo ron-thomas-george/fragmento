@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search, Building2 } from "lucide-react";
+import OnboardingLogo from "@/components/auth/onboarding-logo";
+import { AuthActionCard } from "@/components/auth/auth-action-card";
+import UserProfileMenu from "@/components/auth/user-profile-menu";
+import type { User } from "@supabase/supabase-js";
 
 interface Organization {
   id: string;
@@ -24,38 +31,20 @@ const avatarColors = [
 const getAvatarColor = (index: number) =>
   avatarColors[index % avatarColors.length];
 
-const formatRelativeTime = (dateString: string | null) => {
-  if (!dateString) return "Edited just now";
-  const date = new Date(dateString);
-  const diffMs = Date.now() - date.getTime();
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diffMs >= day) {
-    const days = Math.floor(diffMs / day);
-    return `Edited ${days} day${days === 1 ? "" : "s"} ago`;
-  }
-
-  if (diffMs >= hour) {
-    const hours = Math.floor(diffMs / hour);
-    return `Edited ${hours} hour${hours === 1 ? "" : "s"} ago`;
-  }
-
-  if (diffMs >= minute) {
-    const minutes = Math.floor(diffMs / minute);
-    return `Edited ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  }
-
-  return "Edited just now";
-};
-
 export default function OrganizationsPage() {
   const router = useRouter();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+
+  const filteredOrganizations = organizations.filter((org) =>
+    org.name?.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  );
+
+  const noOrganizations = !loading && !error && organizations.length === 0;
 
   useEffect(() => {
     const loadOrgs = async () => {
@@ -70,6 +59,8 @@ export default function OrganizationsPage() {
           router.push("/signin");
           return;
         }
+
+        setUser(user);
 
         const { data, error: orgError } = await supabase
           .from("organizations")
@@ -94,89 +85,131 @@ export default function OrganizationsPage() {
     void loadOrgs();
   }, [router]);
 
-  const filteredOrganizations = organizations.filter((org) =>
-    org.name?.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
-
-  const noOrganizations = !loading && !error && organizations.length === 0;
-  const noMatches =
-    !loading && !error && organizations.length > 0 && filteredOrganizations.length === 0;
-
   return (
-    <main className="flex min-h-screen flex-col bg-background px-4 py-10">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Organizations</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Choose an organization to continue, or create a new one.
+    <div className="flex min-h-screen flex-col bg-background">
+      <div
+        className="absolute inset-0 z-0 opacity-80"
+        style={{
+          background:
+            "linear-gradient(180deg, #D6C9FD 1%, #E1D7FB 4%, #F7F5F2 100%)",
+        }}
+      />
+      <header className="relative z-10 flex w-full items-center justify-between px-8 py-6">
+        <OnboardingLogo />
+
+        <div className="flex items-center gap-4">
+          <div className="relative w-[300px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+
+            <Input
+              className="bg-white pl-9 border-none shadow-sm h-9"
+              type="search"
+              placeholder="Search organizations"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
+            {searchQuery && (
+              <div className="absolute top-11 z-50 w-full rounded-xl border bg-white shadow-lg backdrop-blur-xl overflow-hidden">
+                {filteredOrganizations.length > 0 ? (
+                  filteredOrganizations.map((org) => (
+                    <button
+                      key={org.id}
+                      onClick={() => {
+                        router.push(`/organizations/${org.id}/projects`);
+                        setSearchQuery("");
+                      }}
+                      className="
+              flex w-full items-center gap-2
+              px-3 py-2 text-left
+              hover:bg-slate-50
+            "
+                    >
+                      <div className="flex h-7 w-7 items-center justify-center rounded bg-slate-100 text-xs font-semibold">
+                        {org.name?.charAt(0).toUpperCase()}
+                      </div>
+
+                      <span className="text-sm text-slate-800">{org.name}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    No organizations found
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Button
+            className="bg-slate-950 text-white hover:bg-slate-900 h-9 cursor-pointer"
+            onClick={() => router.push("/onboarding/create-organization")}
+          >
+            Add organization
+          </Button>
+          <UserProfileMenu
+            name={user?.user_metadata?.full_name || "User"}
+            email={user?.email}
+          />
+        </div>
+      </header>
+
+      <div className="flex flex-1 flex-col items-center justify-center p-6">
+        {loading ? (
+          <div className="flex flex-col items-center gap-2">
+            <Building2 className="h-8 w-8 animate-pulse text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Loading organizations...
             </p>
           </div>
-          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search organizations"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-64"
-            />
-            <button
-              type="button"
-              onClick={() => router.push("/onboarding/create-organization")}
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              New organization
-            </button>
-          </div>
-        </header>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading organizations...</p>
         ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
         ) : noOrganizations ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-            You don&apos;t have any organizations yet. Create one to get started.
-          </div>
-        ) : noMatches ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-            No organizations match “{searchQuery}”.
-          </div>
+          <AuthActionCard
+            imageSrc="/organization.svg"
+            imageAlt="Inbox Illustrations"
+            title=" No organizations created"
+            description="Organizations group projects, team members, and integrations."
+            buttonLabel="Create"
+            onButtonClick={() => router.push("/onboarding/create-organization")}
+          />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="w-full max-w-5xl grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredOrganizations.map((org, index) => (
               <button
                 key={org.id}
                 type="button"
-                onClick={() =>
-                  router.push(`/organizations/${org.id}/projects`)
-                }
-                className="group flex flex-col rounded-2xl border border-border/70 bg-card/70 text-left transition-colors hover:border-primary/60"
+                onClick={() => router.push(`/organizations/${org.id}/projects`)}
+                className="group flex flex-col rounded-xl border border-border/10 bg-white/60 p-1 text-left shadow-sm backdrop-blur-xl transition-all hover:bg-white/80 hover:shadow-md"
               >
                 <div
-                  className="h-32 w-full rounded-t-2xl"
-                  style={{
-                    backgroundColor: getAvatarColor(index),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "rgba(255,255,255,0.9)",
-                    fontSize: "2rem",
-                    fontWeight: 600,
-                  }}
+                  className="flex h-32 w-full items-center justify-center rounded-lg text-3xl font-bold text-white shadow-inner"
+                  style={{ backgroundColor: getAvatarColor(index) }}
                 >
                   {org.name?.charAt(0)?.toUpperCase() ?? "F"}
                 </div>
-                <div className="flex flex-col gap-1 px-4 py-3">
-                  <span className="text-sm font-medium text-foreground">
-                    {org.name}
-                  </span>
+                <div className="px-4 py-4">
+                  <h3 className="font-semibold text-slate-900">{org.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Created{" "}
+                    {new Date(org.created_at || "").toLocaleDateString()}
+                  </p>
                 </div>
               </button>
             ))}
+            {filteredOrganizations.length === 0 && searchQuery && (
+              <div className="col-span-full py-20 text-center text-muted-foreground">
+                No organizations match &quot;{searchQuery}&quot;
+              </div>
+            )}
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
