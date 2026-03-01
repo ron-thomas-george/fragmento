@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { signUpSchema, SignUpValues } from "@/lib/validations/auth";
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/form-input";
@@ -82,11 +84,8 @@ export default function SignUpPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-sm">
-        <AuthHeader
-          title="Sign up"
-          description="Get started with centralized design token management."
-        />
+      <>
+        <AuthHeader title="Sign up" description="Create your account" />
 
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <FormInput
@@ -128,22 +127,25 @@ export default function SignUpPage() {
           <Button
             type="submit"
             disabled={loading || isSubmitting}
-            className=" h-11 w-full cursor-pointer"
+            className="h-11 w-full cursor-pointer"
           >
+            {(loading || isSubmitting) && (
+              <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />
+            )}
             {loading || isSubmitting ? "Creating account..." : "Create account"}
           </Button>
         </form>
 
         <div className="my-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200" />
-          <span className="text-xs text-muted-foreground uppercase">OR</span>
+          <span className="text-xs text-muted-foreground">OR</span>
           <div className="h-px flex-1 bg-slate-200" />
         </div>
 
         <Button
           type="button"
           variant="outline"
-          className="h-11 w-full cursor-pointer"
+          className="h-11 w-full cursor-pointer border-slate-200 bg-white"
           disabled={loading}
           onClick={handleGoogleSignUp}
         >
@@ -175,15 +177,15 @@ export default function SignUpPage() {
         </Button>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          Already have an account?&nbsp;
-          <a
+          Already have an account?{" "}
+          <Link
             href="/signin"
-            className="font-semibold text-slate-950 hover:underline"
+            className="font-semibold text-primary hover:underline"
           >
             Log in
-          </a>
+          </Link>
         </div>
-      </div>
+      </>
     </AuthLayout>
   );
 }

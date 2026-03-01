@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AuthActionCardProps {
@@ -11,6 +12,7 @@ interface AuthActionCardProps {
   imageAlt?: string;
   buttonLabel?: string;
   onButtonClick?: () => void;
+  buttonLoading?: boolean;
   children?: ReactNode;
 }
 
@@ -21,6 +23,7 @@ export function AuthActionCard({
   imageAlt = "Illustration",
   buttonLabel,
   onButtonClick,
+  buttonLoading = false,
   children,
 }: AuthActionCardProps) {
   return (
@@ -41,7 +44,7 @@ export function AuthActionCard({
           </div>
         )}
 
-        <h1 className="text-3xl font-bold tracking-tight text-slate-950">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
           {title}
         </h1>
 
@@ -56,9 +59,13 @@ export function AuthActionCard({
         {buttonLabel && onButtonClick && (
           <Button
             onClick={onButtonClick}
+            disabled={buttonLoading}
             className="mt-4 h-10 min-w-[140px] px-4 transition-colors cursor-pointer"
           >
-            {buttonLabel}
+            {buttonLoading && (
+              <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />
+            )}
+            {buttonLoading ? "Sending..." : buttonLabel}
           </Button>
         )}
       </div>
