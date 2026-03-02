@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { signInSchema, SignInValues } from "@/lib/validations/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,6 @@ export default function SignInPage() {
         toast.error(oauthError.message);
         setLoading(false);
       }
-      // On success Supabase will redirect, so we don't manually push here.
     } catch (err) {
       toast.error("Something went wrong. Please try again.");
       setLoading(false);
@@ -75,11 +75,8 @@ export default function SignInPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-sm">
-        <AuthHeader
-          title="Sign in"
-          description="Access your design token projects and releases."
-        />
+      <>
+        <AuthHeader title="Sign in" description="Welcome back" />
 
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <FormInput
@@ -99,12 +96,12 @@ export default function SignInPage() {
             registration={register("password")}
             error={errors.password}
           >
-            <div className="flex justify-end">
+            <div className="flex">
               <a
                 href="/forgot-password"
-                className="text-xs font-medium text-muted-foreground hover:text-slate-900"
+                className="text-[13px] font-semibold hover:text-slate-900 mt-2"
               >
-                Forgot password?
+                Forgot Password?
               </a>
             </div>
           </FormInput>
@@ -115,6 +112,9 @@ export default function SignInPage() {
             variant="default"
             disabled={loading || isSubmitting}
           >
+            {(loading || isSubmitting) && (
+              <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />
+            )}
             {loading || isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>
@@ -163,12 +163,12 @@ export default function SignInPage() {
           Don&apos;t have an account?&nbsp;
           <a
             href="/signup"
-            className="font-semibold text-slate-950 hover:underline"
+            className="font-semibold text-primary hover:underline"
           >
             Sign up
           </a>
         </div>
-      </div>
+      </>
     </AuthLayout>
   );
 }
