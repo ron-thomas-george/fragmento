@@ -1,204 +1,303 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ExternalLink, Plus } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/button";
+import { AuthActionCard } from "@/components/auth/auth-action-card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createProjectWithDefaults } from "@/lib/create-project";
+import { DialogClose } from "@radix-ui/react-dialog";
+
+interface Organization {
+  id: string;
+  name: string;
+}
 
 interface Project {
   id: string;
   name: string;
-  slug: string;
-  created_at: string | null;
+  description: string | null;
+  organization_id: string;
 }
 
-const avatarColors = [
-  "#a5b4fc",
-  "#fbcfe8",
-  "#fed7aa",
-  "#bbf7d0",
-  "#99f6e4",
-  "#c4b5fd",
-  "#fcd34d",
-];
-
-const getAvatarColor = (index: number) =>
-  avatarColors[index % avatarColors.length];
-
-const formatRelativeTime = (dateString: string | null) => {
-  if (!dateString) return "Created just now";
-  const date = new Date(dateString);
-  const diffMs = Date.now() - date.getTime();
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diffMs >= day) {
-    const days = Math.floor(diffMs / day);
-    return `Created ${days} day${days === 1 ? "" : "s"} ago`;
-  }
-
-  if (diffMs >= hour) {
-    const hours = Math.floor(diffMs / hour);
-    return `Created ${hours} hour${hours === 1 ? "" : "s"} ago`;
-  }
-
-  if (diffMs >= minute) {
-    const minutes = Math.floor(diffMs / minute);
-    return `Created ${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  }
-
-  return "Created just now";
-};
-
 export default function OrganizationProjectsPage() {
-  const router = useRouter();
   const params = useParams<{ organizationId: string }>();
+  const router = useRouter();
   const organizationId = params.organizationId;
-
+  const [org, setOrg] = useState<Organization | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [orgName, setOrgName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const supabase = createSupabaseBrowserClient();
-
-        const { data: org, error: orgError } = await supabase
-          .from("organizations")
-          .select("name")
-          .eq("id", organizationId)
-          .single();
-
-
-        if (orgError || !org) {
-          setLoading(false);
+    if (!organizationId) return;
+    const supabase = createSupabaseBrowserClient();
+    Promise.all([
+      supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("id", organizationId)
+        .single(),
+      supabase
+        .from("projects")
+        .select("id, name, description, organization_id")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false }),
+    ])
+      .then(([orgRes, projectsRes]) => {
+        if (orgRes.error || !orgRes.data) {
           router.replace("/organizations");
           return;
         }
+        setOrg(orgRes.data as Organization);
+        setProjects((projectsRes.data as Project[]) ?? []);
+      })
+      .finally(() => setLoading(false));
+  }, [organizationId, router]);
 
-        setOrgName(org?.name ?? "Organization");
-
-        const { data: projectsData, error: projectsError } = await supabase
-          .from("projects")
-          .select("id, name, slug, created_at")
-          .eq("organization_id", organizationId)
-          .order("created_at", { ascending: false });
-
-        if (projectsError) {
-          setError(projectsError.message);
-          setLoading(false);
-          return;
-        }
-
-        setProjects(projectsData ?? []);
-        setLoading(false);
-      } catch (err) {
-        setError("Something went wrong. Please try again.");
-        setLoading(false);
-      }
-    };
-
-    if (organizationId) {
-      void loadData();
-    }
-  }, [organizationId]);
-
-  const handleNewProject = () => {
-    router.push(`/onboarding/create-project?organizationId=${organizationId}`);
+  const handleOpenDialog = () => {
+    setError(null);
+    setName("");
+    setDescription("");
+    setDialogOpen(true);
   };
 
-  const filteredProjects = projects.filter((project) =>
-    project.name?.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
+  const handleCreate = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!organizationId) return;
 
-  const noProjects = !loading && !error && projects.length === 0;
-  const noMatches =
-    !loading && !error && projects.length > 0 && filteredProjects.length === 0;
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim();
+
+    if (trimmedName.length < 3 || trimmedName.length > 50) {
+      setError("Project name must be between 3 and 50 characters.");
+      return;
+    }
+
+    const namePattern = /^[A-Za-z0-9_-]+$/;
+    if (!namePattern.test(trimmedName)) {
+      setError(
+        "Project name can only contain letters, numbers, hyphens, and underscores.",
+      );
+      return;
+    }
+
+    if (trimmedDescription.length > 500) {
+      setError("Description cannot be longer than 500 characters.");
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { projectId, error: createError } = await createProjectWithDefaults(
+        {
+          supabase,
+          organizationId,
+          name: trimmedName,
+          description: trimmedDescription,
+          planParam: null,
+        },
+      );
+
+      if (createError || !projectId) {
+        setError(createError ?? "Could not create project.");
+        setCreating(false);
+        return;
+      }
+
+      setProjects((prev) => [
+        {
+          id: projectId,
+          name: trimmedName,
+          description: trimmedDescription || null,
+          organization_id: organizationId,
+        },
+        ...prev,
+      ]);
+      setDialogOpen(false);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loading || !org) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8">
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
-    <main className="flex min-h-screen flex-col bg-background px-4 py-10">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Organization
-            </p>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {orgName ?? "Loading..."}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage projects for this organization.
-            </p>
-          </div>
-          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search projects"
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-64"
-            />
-            <button
-              type="button"
-              onClick={handleNewProject}
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              New project
-            </button>
-          </div>
-        </header>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading projects...</p>
-        ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : noProjects ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-            No projects yet. Create your first project to start managing tokens.
-          </div>
-        ) : noMatches ? (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-            No projects match “{searchQuery}”.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {filteredProjects.map((project, index) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => router.push(`/projects/${project.id}/tokens`)}
-                className="group flex flex-col rounded-2xl border border-border/70 bg-card/70 text-left transition-colors hover:border-primary/60"
-              >
-                <div
-                  className="h-32 w-full rounded-t-2xl"
-                  style={{
-                    backgroundColor: getAvatarColor(index),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "rgba(255,255,255,0.9)",
-                    fontSize: "2rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  {project.name?.charAt(0)?.toUpperCase() ?? "P"}
-                </div>
-                <div className="flex flex-col gap-1 px-4 py-3">
-                  <span className="text-sm font-medium text-foreground">
-                    {project.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatRelativeTime(project.created_at)}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="flex flex-1 flex-col p-6">
+      {/* Header: Org name / Projects + Create project */}
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          {org.name} / Projects
+        </h1>
+        <Button
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          onClick={handleOpenDialog}
+        >
+          <Plus className="h-4 w-4" />
+          Create project
+        </Button>
       </div>
-    </main>
+
+      {projects.length === 0 ? (
+        <div className="flex min-h-[60vh] pt-40 items-center justify-center">
+          <AuthActionCard
+            imageSrc="/noprojects.svg"
+            imageAlt="No Projects"
+            title="No projects created"
+            description="Projects group token sets, releases, and integrations for a design system."
+            buttonLabel="Create project"
+            onButtonClick={handleOpenDialog}
+          />
+        </div>
+      ) : (
+        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => {
+            const initial = project.name?.charAt(0)?.toUpperCase() ?? "P";
+            const descriptionText =
+              project.description ||
+              `Design tokens for ${org?.name ?? "this organization"}`;
+            return (
+              <li
+                key={project.id}
+                className="overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm transition-shadow hover:shadow-md"
+              >
+                {/* Top: light purple block with project initial */}
+                <div className="flex h-40 items-center justify-center bg-primary/15">
+                  <span className="text-6xl font-bold text-foreground">
+                    {initial}
+                  </span>
+                </div>
+                {/* Bottom: title, description, link, avatars */}
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-xl font-bold tracking-tight text-foreground">
+                      {project.name}
+                    </h2>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() =>
+                        router.push(`/projects/${project.id}/tokens?set=global`)
+                      }
+                      aria-label="Open project"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {descriptionText}
+                  </p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex -space-x-2">
+                      <Avatar className="h-8 w-8 border-2 border-white">
+                        <AvatarFallback className="bg-slate-200 text-xs font-medium text-slate-600">
+                          U
+                        </AvatarFallback>
+                      </Avatar>
+                      <Avatar className="h-8 w-8 border-2 border-white">
+                        <AvatarFallback className="bg-slate-300 text-xs font-medium text-slate-600">
+                          T
+                        </AvatarFallback>
+                      </Avatar>
+                      <Avatar className="h-8 w-8 border-2 border-white">
+                        <AvatarFallback className="bg-primary/20 text-xs font-medium text-primary">
+                          {initial}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={() =>
+                        router.push(`/projects/${project.id}/tokens?set=global`)
+                      }
+                    >
+                      Open project
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[16px] font-semibold">Create project</div>
+
+            <DialogClose asChild>
+              <button className="text-muted-foreground hover:text-foreground">
+                ✕
+              </button>
+            </DialogClose>
+          </div>
+
+          <form onSubmit={handleCreate} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Name</Label>
+              <Input
+                id="project-name"
+                placeholder="Add project name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description">Description</Label>
+              <textarea
+                id="project-description"
+                rows={5}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Enter a description..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <DialogFooter className="flex flex-row justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={creating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={creating}
+              >
+                {creating ? "Creating..." : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

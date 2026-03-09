@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,9 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (attempts >= 3) {
-      setError("You have reached the maximum number of reset attempts. Please try again later.");
+      setError(
+        "You have reached the maximum number of reset attempts. Please try again later.",
+      );
       return;
     }
 
@@ -31,7 +34,7 @@ export default function ForgotPasswordPage() {
         email,
         {
           redirectTo: `${window.location.origin}/reset-password`,
-        }
+        },
       );
 
       if (resetError) {
@@ -41,7 +44,9 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      setSuccess("If an account exists for this email, we've sent a reset link.");
+      setSuccess(
+        "If an account exists for this email, we've sent a reset link.",
+      );
       setAttempts((prev) => prev + 1);
       setLoading(false);
     } catch (err) {
@@ -52,51 +57,58 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-left">
-          <h1 className="text-2xl font-semibold tracking-tight">Reset your password</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter your email to receive a password reset link.
-          </p>
-        </div>
+      <div className="w-full text-center">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Forgot your password
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Enter your email and we&apos;ll send you an email to reset your
+          password.
+        </p>
 
-        <div className="rounded-lg border bg-card p-6">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-1 text-left">
-              <Label className="text-sm font-medium" htmlFor="email">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </div>
-
-            {error ? (
-              <p className="text-xs text-destructive">{error}</p>
-            ) : null}
-            {success ? (
-              <p className="text-xs text-emerald-600">{success}</p>
-            ) : null}
-
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Sending..." : "Send reset link"}
-            </Button>
-          </form>
-
-          <div className="mt-4 text-center text-xs text-muted-foreground">
-            Remembered your password?{" "}
-            <a
-              href="/signin"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+        <form
+          className="mt-6 flex flex-col items-stretch gap-4"
+          onSubmit={handleSubmit}
+        >
+          <div className="space-y-2 text-left">
+            <Label
+              className="text-sm font-medium text-foreground"
+              htmlFor="email"
             >
-              Back to sign in
-            </a>
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="border-[#E5E7EB] bg-white"
+            />
           </div>
-        </div>
+
+          {error ? (
+            <p className="text-left text-sm text-destructive">{error}</p>
+          ) : null}
+          {success ? (
+            <p className="text-left text-sm text-emerald-600">{success}</p>
+          ) : null}
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-primary cursor-pointer text-primary-foreground hover:bg-primary/90"
+          >
+            {loading ? "Sending..." : "Send email"}
+          </Button>
+
+          <Link
+            href="/signin"
+            className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Back to sign in
+          </Link>
+        </form>
       </div>
     </AuthLayout>
   );
