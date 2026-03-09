@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -12,6 +12,7 @@ import OnboardingLogo from "@/components/auth/onboarding-logo";
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [resendLoading, setResendLoading] = useState(false);
 
   const email = searchParams.get("email");
 
@@ -29,6 +30,7 @@ function VerifyEmailContent() {
       return;
     }
 
+    setResendLoading(true);
     const supabase = createSupabaseBrowserClient();
 
     const { error } = await supabase.auth.resend({
@@ -40,24 +42,18 @@ function VerifyEmailContent() {
       toast.error("Failed to resend email", {
         description: error.message,
       });
+      setResendLoading(false);
       return;
     }
 
     toast.success("Email sent", {
       description: "Confirmation email has been resent successfully.",
     });
+    setResendLoading(false);
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <div
-        className="absolute inset-0 z-0 opacity-80"
-        style={{
-          background:
-            "linear-gradient(180deg, #D6C9FD 1%, #E1D7FB 4%, #F7F5F2 100%)",
-        }}
-      />
-
       <header className="relative z-10 flex w-full items-center justify-between px-8 py-6">
         <OnboardingLogo />
         <Button
@@ -77,6 +73,7 @@ function VerifyEmailContent() {
         imageAlt="Inbox Illustration"
         buttonLabel="Resend email"
         onButtonClick={handleResendEmail}
+        buttonLoading={resendLoading}
         description={
           <>
             We&apos;ve sent a confirmation email to&nbsp;

@@ -10,8 +10,6 @@ import OnboardingLogo from "@/components/auth/onboarding-logo";
 import UserProfileMenu from "@/components/auth/user-profile-menu";
 import type { User } from "@supabase/supabase-js";
 
-const BACKGROUND_GRADIENT =
-  "linear-gradient(180deg, #D6C9FD 1%, #E1D7FB 4%, #F7F5F2 100%)";
 const NAME_MIN_LENGTH = 3;
 const NAME_MAX_LENGTH = 50;
 
@@ -101,10 +99,6 @@ export default function CreateOrganizationPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <div
-        className="absolute inset-0 z-0 opacity-80"
-        style={{ background: BACKGROUND_GRADIENT }}
-      />
       <header className="relative z-10 flex w-full items-center justify-between px-8 py-6">
         <OnboardingLogo />
         <UserProfileMenu
@@ -144,9 +138,9 @@ export default function CreateOrganizationPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-950 text-white hover:bg-slate-900"
+              className="w-full text-white"
             >
-              {loading ? "Creating organization..." : "Create organization"}
+              {loading ? "Creating organization..." : "Continue"}
             </Button>
           </form>
         </div>

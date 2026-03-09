@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -97,12 +98,12 @@ export default function SignInPage() {
             error={errors.password}
           >
             <div className="flex">
-              <a
+              <Link
                 href="/forgot-password"
                 className="text-[13px] font-semibold hover:text-slate-900 mt-2"
               >
                 Forgot Password?
-              </a>
+              </Link>
             </div>
           </FormInput>
 
@@ -161,12 +162,12 @@ export default function SignInPage() {
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
           Don&apos;t have an account?&nbsp;
-          <a
+          <Link
             href="/signup"
             className="font-semibold text-primary hover:underline"
           >
             Sign up
-          </a>
+          </Link>
         </div>
       </>
     </AuthLayout>
