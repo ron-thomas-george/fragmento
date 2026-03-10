@@ -1,22 +1,34 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  forgotPasswordSchema,
+  ForgotPasswordValues,
+} from "@/lib/validations/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormInput } from "@/components/form-input";
 import { AuthLayout } from "../AuthLayout";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: "" },
+  });
+
+  const onSubmit = async (data: ForgotPasswordValues) => {
     if (attempts >= 3) {
       setError(
         "You have reached the maximum number of reset attempts. Please try again later.",
@@ -31,7 +43,7 @@ export default function ForgotPasswordPage() {
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email,
+        data.email,
         {
           redirectTo: `${window.location.origin}/reset-password`,
         },
@@ -49,7 +61,7 @@ export default function ForgotPasswordPage() {
       );
       setAttempts((prev) => prev + 1);
       setLoading(false);
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
@@ -68,21 +80,16 @@ export default function ForgotPasswordPage() {
 
         <form
           className="mt-6 flex flex-col items-stretch gap-4"
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
         >
-          <div className="space-y-2 text-left">
-            <Label
-              className="text-sm font-medium text-foreground"
-              htmlFor="email"
-            >
-              Email
-            </Label>
-            <Input
+          <div className="text-left">
+            <FormInput
               id="email"
+              label="Email"
               type="email"
               placeholder="Enter your email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              registration={register("email")}
+              error={errors.email}
               className="border-[#E5E7EB] bg-white"
             />
           </div>

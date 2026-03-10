@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { TokenFormSheet } from "@/components/token-form-sheet";
 import {
   Select,
   SelectContent,
@@ -28,13 +29,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   X,
-  Check,
   AlertCircle,
   MoreHorizontal,
   Edit,
   Trash2,
   Plus,
-  Search,
   Filter,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1348,19 +1347,30 @@ export default function TokensPage() {
         {/* Header: Tokens title + row of Global dropdown, Create token set, New token */}
         <header className="border-b border-[#E5E7EB] bg-white px-6 py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-xl font-semibold text-foreground">Tokens</h1>
+            <h1 className="text-base font-medium text-foreground flex items-center gap-1.5">
+              <span className="text-slate-500">Tokens</span>
+              {selectedSet && (
+                <>
+                  <span className="text-muted-foreground font-normal">/</span>
+                  <span>
+                    {selectedSet.name.charAt(0).toUpperCase() +
+                      selectedSet.name.slice(1)}
+                  </span>
+                </>
+              )}
+            </h1>
             <div className="flex items-center gap-2">
               <Select
                 value={selectedSetId ?? ""}
                 onValueChange={(id) => setSelectedSetId(id || null)}
               >
-                <SelectTrigger className="h-9 w-[130px] rounded-lg border-[#d1d5db] text-sm font-medium text-gray-800 hover:bg-[#e5e7eb] [&>svg]:text-gray-600">
+                <SelectTrigger className="h-9 w-auto rounded-lg border-[#d1d5db] text-sm font-medium text-gray-800 hover:bg-[#e5e7eb] [&>svg]:text-gray-600">
                   <SelectValue placeholder="Set" />
                 </SelectTrigger>
                 <SelectContent>
                   {sets.map((set) => (
                     <SelectItem key={set.id} value={set.id}>
-                      {set.name}
+                      {set.name.charAt(0).toUpperCase() + set.name.slice(1)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1368,15 +1378,15 @@ export default function TokensPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-9 rounded-lg border-[#d1d5db] text-sm font-medium text-gray-800 hover:bg-[#e5e7eb] hover:text-gray-900"
+                className="h-9 w-auto rounded-lg border-[#d1d5db] text-sm font-medium text-gray-800 hover:bg-[#e5e7eb] hover:text-gray-900"
                 onClick={openNewSetDialog}
               >
-                <Plus className="h-4 w-4 mr-1.5 text-gray-600" />
+                <Plus className="h-4 w-4 text-gray-600" />
                 Create token set
               </Button>
               <Button
                 size="sm"
-                className="h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                className="h-9 w-auto rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
                 onClick={openNewTokenDialog}
                 disabled={!selectedSetId}
               >
@@ -1385,15 +1395,31 @@ export default function TokensPage() {
               </Button>
             </div>
           </div>
-          {/* Filters row */}
-          <div className="mt-3 flex items-center gap-2">
+        </header>
+
+        <div className="flex-1 px-6 py-4">
+          {/* Set name + count (left), Filters (right) */}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {selectedSet && (
+                <>
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedSet.name.charAt(0).toUpperCase() +
+                      selectedSet.name.slice(1)}
+                  </span>
+                  <span className="rounded-full bg-[#EEEBFF] px-3 py-0.5 text-sm font-medium text-primary">
+                    {tokenCount} token{tokenCount !== 1 ? "s" : ""}
+                  </span>
+                </>
+              )}
+            </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[120px] h-8 border-[#E5E7EB]">
-                <Filter className="h-4 w-4 mr-1.5 text-muted-foreground" />
+              <SelectTrigger className="w-auto gap-1.5 h-8 border-[#E5E7EB] px-3 text-sm font-medium text-gray-700">
+                <Filter className="h-3.5 w-3.5 text-gray-500" />
                 <SelectValue placeholder="Filters" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="all">Filters</SelectItem>
                 {availableTypes.map((type) => (
                   <SelectItem key={type} value={type}>
                     {(type || "").charAt(0).toUpperCase() +
@@ -1402,32 +1428,11 @@ export default function TokensPage() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search tokens"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
           </div>
-        </header>
 
-        <div className="flex-1 px-6 py-4">
-          {/* Section title: Global + pill badge "100 tokens" */}
-          {selectedSet && (
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">
-                {selectedSet.name}
-              </span>
-              <span className="rounded-full bg-[#EEEBFF] px-3 py-1 text-sm font-medium text-primary">
-                {tokenCount} token{tokenCount !== 1 ? "s" : ""}
-              </span>
-            </div>
-          )}
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p className="text-sm text-destructive mb-4">{error}</p>
+          ) : null}
 
           <div className="rounded-lg border border-[#E5E7EB] w-full overflow-x-auto bg-white">
             <table className="w-full border-collapse text-left text-sm">
@@ -1558,16 +1563,19 @@ export default function TokensPage() {
 
           {/* Pagination */}
           {filteredTokens.length > tokensPerPage && (
-            <div className="mt-6 flex items-center justify-center gap-2">
+            <div className="mt-6 flex items-center justify-between">
+              {/* Previous */}
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 rounded-full border-[#d1d5db] bg-[#f3f4f6] px-4 text-sm font-medium text-gray-700 hover:bg-[#e5e7eb] hover:text-gray-900 disabled:opacity-50"
+                className="h-9 rounded-lg border-[#d1d5db] bg-white px-4 text-sm font-medium text-gray-700 hover:bg-[#f3f4f6] disabled:opacity-40"
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
               >
                 ← Previous
               </Button>
+
+              {/* Page numbers */}
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(
@@ -1582,38 +1590,39 @@ export default function TokensPage() {
                     acc.push(p);
                     return acc;
                   }, [])
-                  .map((p) =>
+                  .map((p, i) =>
                     p === -1 ? (
                       <span
-                        key="ellipsis"
-                        className="px-1.5 text-sm text-gray-500"
+                        key={`ellipsis-${i}`}
+                        className="flex h-9 w-9 items-center justify-center text-sm text-gray-400"
                       >
                         ...
                       </span>
                     ) : currentPage === p ? (
                       <span
                         key={p}
-                        className="flex h-9 min-w-[2.25rem] items-center justify-center rounded-full bg-[#EEEBFF] px-2.5 text-sm font-medium text-primary"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEEBFF] text-sm font-medium text-primary"
                       >
                         {p}
                       </span>
                     ) : (
-                      <Button
+                      <button
                         key={p}
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 min-w-[2.25rem] rounded-full px-2.5 text-sm font-medium text-gray-700 hover:bg-transparent hover:text-gray-900"
+                        type="button"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium text-gray-600 hover:bg-[#f3f4f6]"
                         onClick={() => setCurrentPage(p)}
                       >
                         {p}
-                      </Button>
+                      </button>
                     ),
                   )}
               </div>
+
+              {/* Next */}
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 rounded-full border-[#d1d5db] bg-[#f3f4f6] px-4 text-sm font-medium text-gray-700 hover:bg-[#e5e7eb] hover:text-gray-900 disabled:opacity-50"
+                className="h-9 rounded-lg border-[#d1d5db] bg-white px-4 text-sm font-medium text-gray-700 hover:bg-[#f3f4f6] disabled:opacity-40"
                 onClick={() =>
                   setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                 }
@@ -1625,157 +1634,44 @@ export default function TokensPage() {
           )}
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div>
-                <DialogTitle className="text-lg font-semibold">
-                  {editingToken
-                    ? `Edit token: ${editingToken.name}`
-                    : "Create new token"}
-                </DialogTitle>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setDialogOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {/* Name and Type on same line */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="token-name" className="text-sm font-medium">
-                    Token Name <span className="text-destructive">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="token-name"
-                      value={formName}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormName(value);
-                        validateTokenName(value);
-                        if (value.trim()) {
-                          checkNameUniqueness(value);
-                        }
-                      }}
-                      placeholder="color.primary.500"
-                      className={`font-mono ${nameError ? "border-destructive" : isNameUnique && formName ? "border-green-500" : ""}`}
-                    />
-                    {formName && !nameError && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {isNameUnique ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <AlertCircle className="h-4 w-4 text-destructive" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {nameError && (
-                    <p className="text-xs text-destructive">{nameError}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Length: {formName.length}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="token-type" className="text-sm font-medium">
-                    Type <span className="text-destructive">*</span>
-                  </Label>
-                  <Select value={formType} onValueChange={setFormType}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select token type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(tokenTypes).map(([category, types]) => (
-                        <div key={category}>
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                            {category}
-                          </div>
-                          {types.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </div>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Dynamic Value Input Field */}
-              <div className="space-y-2">
-                <Label htmlFor="token-value" className="text-sm font-medium">
-                  Value <span className="text-destructive">*</span>
-                </Label>
-                {renderValueField()}
-                {valueError && (
-                  <p className="text-xs text-destructive">{valueError}</p>
-                )}
-              </div>
-
-              {/* Description Textarea */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="token-description"
-                  className="text-sm font-medium"
-                >
-                  Description{" "}
-                  <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <textarea
-                  id="token-description"
-                  value={formDescription}
-                  onChange={(e) =>
-                    setFormDescription(e.target.value.slice(0, 500))
-                  }
-                  placeholder="Add a description to help your team understand this token..."
-                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  rows={2}
-                />
-                <p className="text-xs text-muted-foreground text-right">
-                  {formDescription.length}/500 characters
-                </p>
-              </div>
-            </div>
-
-            <DialogFooter className="flex flex-row justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveToken}
-                disabled={
-                  saving || !!nameError || !formName.trim() || !formValue.trim()
-                }
-              >
-                {saving
-                  ? "Saving..."
-                  : editingToken
-                    ? "Save changes"
-                    : "Create"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <TokenFormSheet
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          editingToken={editingToken}
+          formName={formName}
+          formType={formType}
+          formValue={formValue}
+          formDescription={formDescription}
+          nameError={nameError}
+          valueError={valueError}
+          isNameUnique={isNameUnique}
+          saving={saving}
+          tokenTypes={tokenTypes}
+          onNameChange={(value) => {
+            setFormName(value);
+            validateTokenName(value);
+            if (value.trim()) {
+              checkNameUniqueness(value);
+            }
+          }}
+          onTypeChange={(value) => {
+            setFormType(value);
+            setFormValue("");
+            setValueError("");
+            setShowReferenceDropdown(false);
+          }}
+          onDescriptionChange={(value) =>
+            setFormDescription(value.slice(0, 500))
+          }
+          renderValueField={renderValueField}
+          onSave={handleSaveToken}
+        />
 
         {/* New Set Dialog */}
         <Dialog open={newSetDialogOpen} onOpenChange={setNewSetDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create new set</DialogTitle>
+              <DialogTitle>Create token set</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -1790,7 +1686,7 @@ export default function TokensPage() {
                     setNewSetName(e.target.value);
                     validateNewSetName(e.target.value);
                   }}
-                  placeholder="Enter set name..."
+                  placeholder="Add token set"
                   className={newSetNameError ? "border-destructive" : ""}
                 />
                 {newSetNameError && (
@@ -1805,7 +1701,7 @@ export default function TokensPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="setDescription">Description (optional)</Label>
+                <Label htmlFor="setDescription">Description </Label>
                 <textarea
                   id="setDescription"
                   value={newSetDescription}
