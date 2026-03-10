@@ -1,23 +1,35 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  resetPasswordSchema,
+  ResetPasswordValues,
+} from "@/lib/validations/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormInput } from "@/components/form-input";
 import { AuthLayout } from "../AuthLayout";
 
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
   useEffect(() => {
     const initSession = async () => {
@@ -52,24 +64,13 @@ function ResetPasswordContent() {
     void initSession();
   }, [searchParams]);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const onSubmit = async (data: ResetPasswordValues) => {
     setError(null);
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
       const { error: updateError } = await supabase.auth.updateUser({
-        password,
+        password: data.password,
       });
 
       if (updateError) {
@@ -133,39 +134,29 @@ function ResetPasswordContent() {
 
         <form
           className="mt-6 flex flex-col items-stretch gap-4"
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
         >
-          <div className="space-y-2 text-left">
-            <Label
-              className="text-sm font-medium text-foreground"
-              htmlFor="password"
-            >
-              New password
-            </Label>
-            <Input
+          <div className="text-left">
+            <FormInput
               id="password"
+              label="New password"
               type="password"
               placeholder="Enter new password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              registration={register("password")}
+              error={errors.password}
               className="border-[#E5E7EB] bg-white"
               autoComplete="new-password"
             />
           </div>
 
-          <div className="space-y-2 text-left">
-            <Label
-              className="text-sm font-medium text-foreground"
-              htmlFor="confirm-password"
-            >
-              Confirm password
-            </Label>
-            <Input
+          <div className="text-left">
+            <FormInput
               id="confirm-password"
+              label="Confirm password"
               type="password"
               placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              registration={register("confirmPassword")}
+              error={errors.confirmPassword}
               className="border-[#E5E7EB] bg-white"
               autoComplete="new-password"
             />

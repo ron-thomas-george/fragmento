@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   Sidebar,
@@ -13,19 +12,17 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import {
-  FolderOpen,
   Palette,
   History,
   Settings2,
   Link2,
   SlidersHorizontal,
   ChevronDown,
-  User,
-  LogOut,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { normalizePlan, canUpgrade } from "@/lib/plans";
+import { normalizePlan } from "@/lib/plans";
 import { PlanProvider } from "@/contexts/plan-context";
+import { SidebarAccountFooter } from "@/components/sidebar-account-footer";
 
 interface ProjectLayoutProps {
   children: ReactNode;
@@ -356,100 +353,20 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
             </SidebarNav>
             <SidebarFooter>
               {!sidebarCollapsed && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span>
-                      Current Plan: {isLoadingPlan ? "Loading..." : currentPlan}
-                    </span>
-                    {!isLoadingPlan && canUpgrade(currentPlan) && (
-                      <Link
-                        href="/onboarding/select-plan"
-                        className="text-primary underline-offset-4 hover:underline"
-                      >
-                        Upgrade
-                      </Link>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setUserDropdownOpen((open) => !open)}
-                      className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted"
-                    >
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                        {currentUser?.avatar_url ? (
-                          <img
-                            src={currentUser.avatar_url}
-                            alt={currentUser.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <User className="h-3 w-3 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex flex-col flex-1">
-                        <span className="text-[11px] font-medium text-foreground truncate">
-                          {currentUser?.name || "Loading..."}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {currentUser?.email || ""}
-                        </span>
-                      </div>
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    </button>
-
-                    {userDropdownOpen && !sidebarCollapsed && (
-                      <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-lg border bg-white p-2 text-xs">
-                        <div className="px-2 py-1.5 border-b border-border">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                              {currentUser?.avatar_url ? (
-                                <img
-                                  src={currentUser.avatar_url}
-                                  alt={currentUser.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-xs font-medium text-foreground">
-                                {currentUser?.name}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {currentUser?.email}
-                              </span>
-                              {currentUser?.provider === "google" && (
-                                <span className="text-[9px] text-muted-foreground">
-                                  Signed in with Google
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUserDropdownOpen(false);
-                            handleSignOut();
-                          }}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted mt-1"
-                        >
-                          <LogOut className="h-3 w-3" />
-                          <span className="text-xs">Sign out</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <SidebarAccountFooter
+                  currentPlan={currentPlan}
+                  isLoadingPlan={isLoadingPlan}
+                  currentUser={currentUser}
+                  onSignOut={handleSignOut}
+                />
               )}
             </SidebarFooter>
           </Sidebar>
 
           <div className="flex flex-1 min-w-0 flex-col">
-            <main className="flex-1 min-w-0 bg-background">{children}</main>
+            <main className="flex min-h-0 flex-1 min-w-0 flex-col bg-background">
+              {children}
+            </main>
           </div>
         </div>
       </SidebarProvider>
