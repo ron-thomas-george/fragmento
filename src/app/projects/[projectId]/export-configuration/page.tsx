@@ -46,6 +46,13 @@ interface Token {
   token_set_id: string;
 }
 
+interface GitHubRepoOption {
+  id: string;
+  repository_owner: string;
+  repository_name: string;
+  branch_name: string;
+}
+
 type ExportFormat = "shadcn" | "android" | "ios" | "tailwind" | "raw-json";
 
 interface GeneratedFile {
@@ -63,6 +70,16 @@ export default function ExportConfigurationPage({
   const [selectedSets, setSelectedSets] = useState<string[]>([]);
   const [allSetsSelected, setAllSetsSelected] = useState(true);
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [connectedRepos, setConnectedRepos] = useState<GitHubRepoOption[]>([]);
+  const [repoByFormat, setRepoByFormat] = useState<
+    Record<ExportFormat, string | undefined>
+  >({
+    shadcn: undefined,
+    android: undefined,
+    ios: undefined,
+    tailwind: undefined,
+    "raw-json": undefined,
+  });
   const [generatedFiles, setGeneratedFiles] = useState<
     Record<ExportFormat, GeneratedFile[]>
   >({} as Record<ExportFormat, GeneratedFile[]>);
@@ -115,6 +132,18 @@ export default function ExportConfigurationPage({
           .eq("project_id", projectId)
           .order("name");
 
+        // Load connected GitHub repos (for repository selection)
+        const { data: reposData } = await supabase
+          .from("github_integrations")
+          .select("id, repository_owner, repository_name, branch_name")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false });
+
+        const { data: repoConfigData } = await supabase
+          .from("export_repository_configs")
+          .select("format, github_integration_id")
+          .eq("project_id", projectId);
+
         if (setsData && tokensData) {
           // Count tokens for each set
           const tokenCounts = tokensData.reduce(
@@ -136,6 +165,27 @@ export default function ExportConfigurationPage({
           setSelectedSets(formattedSets.map((set) => set.id));
           setTokens(tokensData as Token[]);
         }
+
+        setConnectedRepos((reposData as GitHubRepoOption[]) ?? []);
+
+        if (repoConfigData) {
+          const next: Record<ExportFormat, string | undefined> = {
+            shadcn: undefined,
+            android: undefined,
+            ios: undefined,
+            tailwind: undefined,
+            "raw-json": undefined,
+          };
+          for (const row of repoConfigData as Array<{
+            format: ExportFormat;
+            github_integration_id: string | null;
+          }>) {
+            if (row.github_integration_id) {
+              next[row.format] = row.github_integration_id;
+            }
+          }
+          setRepoByFormat(next);
+        }
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
@@ -145,6 +195,23 @@ export default function ExportConfigurationPage({
 
     loadData();
   }, [projectId]);
+
+  const saveRepoSelection = async (format: ExportFormat, repoId: string) => {
+    setRepoByFormat((prev) => ({ ...prev, [format]: repoId }));
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from("export_repository_configs").upsert(
+      {
+        project_id: projectId,
+        format,
+        github_integration_id: repoId,
+      },
+      { onConflict: "project_id,format" },
+    );
+    if (error) {
+      console.error("Error saving repository selection:", error);
+      toast.error("Could not save repository selection");
+    }
+  };
 
   // Handle set selection
   const handleSetSelection = (setId: string, checked: boolean) => {
@@ -618,6 +685,133 @@ module.exports = {
                     className="shrink-0"
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-border/60 gap-0 py-3">
+              <CardHeader className="pb-0 gap-0">
+                <CardTitle className="text-[15px] font-semibold gap-0">
+                  Configure repository
+                </CardTitle>
+              </CardHeader>
+              <Separator className="mt-3" />
+              <CardContent className="pt-4 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-semibold">shadcn/react</div>
+                  <Select
+                    value={repoByFormat.shadcn}
+                    onValueChange={(value) =>
+                      void saveRepoSelection("shadcn", value)
+                    }
+                    disabled={connectedRepos.length === 0}
+                  >
+                    <SelectTrigger className="h-10 w-[220px]">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connectedRepos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.repository_owner}/{repo.repository_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-semibold">Android</div>
+                  <Select
+                    value={repoByFormat.android}
+                    onValueChange={(value) =>
+                      void saveRepoSelection("android", value)
+                    }
+                    disabled={connectedRepos.length === 0}
+                  >
+                    <SelectTrigger className="h-10 w-[220px]">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connectedRepos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.repository_owner}/{repo.repository_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-semibold">iOS</div>
+                  <Select
+                    value={repoByFormat.ios}
+                    onValueChange={(value) =>
+                      void saveRepoSelection("ios", value)
+                    }
+                    disabled={connectedRepos.length === 0}
+                  >
+                    <SelectTrigger className="h-10 w-[220px]">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connectedRepos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.repository_owner}/{repo.repository_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-semibold">Tailwind</div>
+                  <Select
+                    value={repoByFormat.tailwind}
+                    onValueChange={(value) =>
+                      void saveRepoSelection("tailwind", value)
+                    }
+                    disabled={connectedRepos.length === 0}
+                  >
+                    <SelectTrigger className="h-10 w-[220px]">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connectedRepos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.repository_owner}/{repo.repository_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm font-semibold">Raw JSON</div>
+                  <Select
+                    value={repoByFormat["raw-json"]}
+                    onValueChange={(value) =>
+                      void saveRepoSelection("raw-json", value)
+                    }
+                    disabled={connectedRepos.length === 0}
+                  >
+                    <SelectTrigger className="h-10 w-[220px]">
+                      <SelectValue placeholder="Select repository" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {connectedRepos.map((repo) => (
+                        <SelectItem key={repo.id} value={repo.id}>
+                          {repo.repository_owner}/{repo.repository_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {connectedRepos.length === 0 && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    No GitHub repositories connected yet. Connect one in
+                    Integrations.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

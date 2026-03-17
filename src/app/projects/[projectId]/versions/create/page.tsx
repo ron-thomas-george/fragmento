@@ -43,6 +43,13 @@ interface VersionInfo {
   patch: number;
 }
 
+type ExportFormat = "shadcn" | "android" | "ios" | "tailwind" | "raw-json";
+
+interface GeneratedFile {
+  filename: string;
+  contents: string;
+}
+
 export default function CreateReleasePage({ params }: CreateReleasePageProps) {
   const { projectId } = use(params);
   const router = useRouter();
@@ -71,7 +78,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
     "major" | "minor" | "patch"
   >("minor");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [successUrls, setSuccessUrls] = useState<string[]>([]);
 
   // Load data on page load
   useEffect(() => {
@@ -280,7 +287,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
     setCommitMessage(message);
   };
 
-  const generateTokensJSON = async () => {
+  const fetchTokensForExport = async () => {
     try {
       const supabase = createSupabaseBrowserClient();
 
@@ -296,43 +303,185 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
         .eq("project_id", projectId)
         .order("name");
 
-      if (!tokens) return null;
+      return (tokens ?? []) as Array<{
+        name: string;
+        type: string;
+        value: any;
+        resolved_value: any;
+        description: string | null;
+        token_sets: { name: string }[];
+      }>;
+    } catch (error) {
+      console.error("Error fetching tokens:", error);
+      return [];
+    }
+  };
 
-      // Group tokens by set and organize them
-      const tokensBySet: Record<string, any> = {};
+  const generateRawJsonFiles = (
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    const tokensBySet: Record<string, any> = {};
+    tokens.forEach((token) => {
+      const setName = token.token_sets?.[0]?.name || "global";
+      if (!tokensBySet[setName]) tokensBySet[setName] = {};
+      tokensBySet[setName][token.name] = {
+        value: token.resolved_value || token.value,
+        type: token.type,
+        description: token.description,
+      };
+    });
 
-      tokens.forEach((token) => {
-        const setName = (token.token_sets as any)?.name || "global";
+    const jsonData = {
+      version: `v${customVersion.major}.${customVersion.minor}.${customVersion.patch}`,
+      tokens: tokensBySet,
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        changesCount: pendingChanges.length,
+        releaseNotes: releaseNotes,
+      },
+    };
 
-        if (!tokensBySet[setName]) {
-          tokensBySet[setName] = {};
-        }
+    return [
+      { filename: "tokens.json", contents: JSON.stringify(jsonData, null, 2) },
+    ];
+  };
 
-        // Use resolved_value for the actual token value
-        tokensBySet[setName][token.name] = {
+  const generateShadcnFiles = (
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    const cssVariables: Record<string, string> = {};
+    tokens.forEach((token) => {
+      const value = token.resolved_value || token.value;
+      let cssValue: string;
+
+      if (token.type === "color") {
+        cssValue = typeof value === "string" ? value : JSON.stringify(value);
+      } else if (token.type === "dimension") {
+        cssValue = typeof value === "string" ? value : `${value}px`;
+      } else if (token.type === "fontFamily") {
+        cssValue = Array.isArray(value) ? value.join(", ") : String(value);
+      } else {
+        cssValue = typeof value === "string" ? value : JSON.stringify(value);
+      }
+
+      const cssVarName = `--${token.name.replace(/[.\s]/g, "-").toLowerCase()}`;
+      cssVariables[cssVarName] = cssValue;
+    });
+
+    const cssOutput = `:root {\n${Object.entries(cssVariables)
+      .map(([name, value]) => `  ${name}: ${value};`)
+      .join(
+        "\n",
+      )}\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}`;
+
+    return [{ filename: "tokens.css", contents: cssOutput }];
+  };
+
+  const generateAndroidFiles = (
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    const colorTokens = tokens.filter((t) => t.type === "color");
+    const dimTokens = tokens.filter((t) => t.type === "dimension");
+    const toAndroidName = (name: string) =>
+      name.replace(/[.\s]/g, "_").toLowerCase();
+
+    const colorsXml = `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n${colorTokens
+      .map((token) => {
+        const value = token.resolved_value || token.value;
+        return `  <color name=\"${toAndroidName(token.name)}\">${value}</color>`;
+      })
+      .join("\n")}\n</resources>`;
+
+    const files: GeneratedFile[] = [
+      { filename: "values/colors.xml", contents: colorsXml },
+    ];
+
+    if (dimTokens.length > 0) {
+      const dimensXml = `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n${dimTokens
+        .map((token) => {
+          const value = token.resolved_value || token.value;
+          const dim = typeof value === "string" ? value : `${value}px`;
+          return `  <dimen name=\"${toAndroidName(token.name)}\">${dim}</dimen>`;
+        })
+        .join("\n")}\n</resources>`;
+      files.push({ filename: "values/dimens.xml", contents: dimensXml });
+    }
+
+    return files;
+  };
+
+  const generateIosFiles = (
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    const swiftColors = tokens
+      .filter((t) => t.type === "color")
+      .map((token) => {
+        const value = token.resolved_value || token.value;
+        return `  static let ${token.name.replace(/[.\s]/g, "_").toLowerCase()} = Color(\"${value}\")`;
+      })
+      .join("\n");
+
+    const swiftFile = `import SwiftUI\n\nstruct DesignTokens {\n${swiftColors}\n}`;
+
+    const jsonObject = tokens.reduce(
+      (acc, token) => {
+        acc[token.name] = {
           value: token.resolved_value || token.value,
           type: token.type,
-          description: token.description,
         };
+        return acc;
+      },
+      {} as Record<string, any>,
+    );
+
+    return [
+      { filename: "DesignTokens.swift", contents: swiftFile },
+      {
+        filename: "tokens.json",
+        contents: JSON.stringify(jsonObject, null, 2),
+      },
+    ];
+  };
+
+  const generateTailwindFiles = (
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    const tailwindColors: Record<string, string> = {};
+    tokens
+      .filter((t) => t.type === "color")
+      .forEach((token) => {
+        const value = token.resolved_value || token.value;
+        const name = token.name.replace(/\s+/g, "-").toLowerCase();
+        tailwindColors[name] = value;
       });
 
-      return {
-        version: `v${customVersion.major}.${customVersion.minor}.${customVersion.patch}`,
-        tokens: tokensBySet,
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          changesCount: pendingChanges.length,
-          releaseNotes: releaseNotes,
-        },
-      };
-    } catch (error) {
-      console.error("Error generating tokens JSON:", error);
-      return null;
+    const jsFile = `/** Auto‑generated by Fragmento */\nmodule.exports = {\n  theme: {\n    extend: {\n      colors: ${JSON.stringify(tailwindColors, null, 2)}\n    }\n  }\n};`;
+    return [{ filename: "tailwind.tokens.config.js", contents: jsFile }];
+  };
+
+  const filesForFormat = (
+    format: ExportFormat,
+    tokens: Awaited<ReturnType<typeof fetchTokensForExport>>,
+  ): GeneratedFile[] => {
+    switch (format) {
+      case "shadcn":
+        return generateShadcnFiles(tokens);
+      case "android":
+        return generateAndroidFiles(tokens);
+      case "ios":
+        return generateIosFiles(tokens);
+      case "tailwind":
+        return generateTailwindFiles(tokens);
+      case "raw-json":
+        return generateRawJsonFiles(tokens);
+      default:
+        return [];
     }
   };
 
   const pushToGitHub = async (
-    tokensData: any,
+    githubIntegrationId: string,
+    files: GeneratedFile[],
     options: {
       commitMessage: string;
       versionString: string;
@@ -346,12 +495,12 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
     const { data: githubConfig } = await supabase
       .from("github_integrations")
       .select("*")
-      .eq("project_id", projectId)
-      .single();
+      .eq("id", githubIntegrationId)
+      .maybeSingle();
 
     if (!githubConfig || !githubConfig.verified) {
       throw new Error(
-        "GitHub integration not configured or verified. Please set up GitHub integration first.",
+        "GitHub integration not configured or verified. Select a repository in Export Configuration and ensure it is verified.",
       );
     }
 
@@ -375,6 +524,35 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
           },
         },
       );
+
+    const toGitHubApiError = async (res: Response, action: string) => {
+      let message = `${action} failed (${res.status})`;
+      try {
+        const body = (await res.json()) as {
+          message?: string;
+          documentation_url?: string;
+        };
+        if (body?.message)
+          message = `${action} failed (${res.status}): ${body.message}`;
+      } catch {
+        // ignore json parse errors
+      }
+
+      if (res.status === 404) {
+        message +=
+          "\n\nGitHub returned 404. This usually means the token cannot access this repository (common for private repos or fine‑grained PATs without repo access).\n" +
+          "Fix: update your GitHub integration token to include repository access and at least:\n" +
+          "- Contents: Read and write\n" +
+          "- Pull requests: Read and write\n" +
+          "- Metadata: Read\n";
+      } else if (res.status === 403) {
+        message +=
+          "\n\nGitHub returned 403. This usually means the token is missing permissions.\n" +
+          "Fix: ensure the token has Contents (write) + Pull requests (write) and the repo is included in its access scope.\n";
+      }
+
+      return new Error(message);
+    };
 
     // Verify repo access
     const repoResponse = await api("");
@@ -407,9 +585,9 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
       `/branches/${encodeURIComponent(baseBranchName)}`,
     );
     if (!branchRes.ok) {
-      const err = await branchRes.json();
-      throw new Error(
-        `Could not get base branch ${baseBranchName}: ${(err as { message?: string }).message || branchRes.status}`,
+      throw await toGitHubApiError(
+        branchRes,
+        `Could not get base branch ${baseBranchName}`,
       );
     }
     const branchData = await branchRes.json();
@@ -418,55 +596,51 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
     // 2) Get base commit to get tree SHA
     const commitRes = await api(`/git/commits/${baseCommitSha}`);
     if (!commitRes.ok) {
-      const err = await commitRes.json();
-      throw new Error(
-        `Could not get base commit: ${(err as { message?: string }).message || commitRes.status}`,
-      );
+      throw await toGitHubApiError(commitRes, "Could not get base commit");
     }
     const commitData = await commitRes.json();
     const baseTreeSha = commitData.tree.sha;
 
-    // 3) Create blob with new tokens.json content
-    const fileContent = JSON.stringify(tokensData, null, 2);
-    const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
-    const blobRes = await api("/git/blobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: encodedContent,
-        encoding: "base64",
-      }),
-    });
-    if (!blobRes.ok) {
-      const err = await blobRes.json();
-      throw new Error(
-        `Failed to create blob: ${(err as { message?: string }).message || blobRes.status}`,
-      );
-    }
-    const blobData = await blobRes.json();
-    const blobSha = blobData.sha;
+    const encodeBase64 = (content: string) =>
+      btoa(unescape(encodeURIComponent(content)));
 
-    // 4) Create tree with tokens.json (replaces or adds file in base tree)
+    // 3) Create blobs for all files
+    const blobs: Array<{ path: string; sha: string }> = [];
+    for (const file of files) {
+      const blobRes = await api("/git/blobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: encodeBase64(file.contents),
+          encoding: "base64",
+        }),
+      });
+      if (!blobRes.ok) {
+        throw await toGitHubApiError(
+          blobRes,
+          `Failed to create blob for ${file.filename}`,
+        );
+      }
+      const blobData = await blobRes.json();
+      blobs.push({ path: file.filename, sha: blobData.sha });
+    }
+
+    // 4) Create tree with all files (replaces or adds files in base tree)
     const treeRes = await api("/git/trees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         base_tree: baseTreeSha,
-        tree: [
-          {
-            path: "tokens.json",
-            mode: "100644",
-            type: "blob",
-            sha: blobSha,
-          },
-        ],
+        tree: blobs.map((b) => ({
+          path: b.path,
+          mode: "100644",
+          type: "blob",
+          sha: b.sha,
+        })),
       }),
     });
     if (!treeRes.ok) {
-      const err = await treeRes.json();
-      throw new Error(
-        `Failed to create tree: ${(err as { message?: string }).message || treeRes.status}`,
-      );
+      throw await toGitHubApiError(treeRes, "Failed to create tree");
     }
     const treeData = await treeRes.json();
     const newTreeSha = treeData.sha;
@@ -483,10 +657,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
       }),
     });
     if (!createCommitRes.ok) {
-      const err = await createCommitRes.json();
-      throw new Error(
-        `Failed to create commit: ${(err as { message?: string }).message || createCommitRes.status}`,
-      );
+      throw await toGitHubApiError(createCommitRes, "Failed to create commit");
     }
     const newCommitData = await createCommitRes.json();
     const newCommitSha = newCommitData.sha;
@@ -501,10 +672,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
       }),
     });
     if (!refRes.ok) {
-      const err = await refRes.json();
-      throw new Error(
-        `Failed to create branch: ${(err as { message?: string }).message || refRes.status}`,
-      );
+      throw await toGitHubApiError(refRes, "Failed to create branch");
     }
 
     // 7) Create pull request (base = main, head = new branch)
@@ -521,10 +689,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
       }),
     });
     if (!prRes.ok) {
-      const err = await prRes.json();
-      throw new Error(
-        `Failed to create pull request: ${(err as { message?: string }).message || prRes.status}`,
-      );
+      throw await toGitHubApiError(prRes, "Failed to create pull request");
     }
     const prData = await prRes.json();
     return { prUrl: prData.html_url };
@@ -632,7 +797,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
   const handleCreateRelease = async () => {
     setLoading(true);
     setError("");
-    setSuccess("");
+    setSuccessUrls([]);
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -648,18 +813,63 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
 
       const versionString = `v${customVersion.major}.${customVersion.minor}.${customVersion.patch}`;
 
-      // Generate tokens JSON
-      const tokensData = await generateTokensJSON();
-      if (!tokensData) {
-        throw new Error("Failed to generate tokens JSON");
+      const tokens = await fetchTokensForExport();
+
+      // Determine which repos to push to (all configured, deduped; fallback to latest)
+      const { data: repoConfigs } = await supabase
+        .from("export_repository_configs")
+        .select("format, github_integration_id")
+        .eq("project_id", projectId);
+
+      // Build repo -> files mapping based on configured formats
+      const filesByIntegrationId = new Map<string, GeneratedFile[]>();
+      for (const row of (repoConfigs ?? []) as Array<{
+        format: ExportFormat;
+        github_integration_id: string | null;
+      }>) {
+        if (!row.github_integration_id) continue;
+        const files = filesForFormat(row.format, tokens);
+        const prev = filesByIntegrationId.get(row.github_integration_id) ?? [];
+        filesByIntegrationId.set(row.github_integration_id, [
+          ...prev,
+          ...files,
+        ]);
       }
 
-      // Create PR with token changes (no direct push to main)
-      const { prUrl } = await pushToGitHub(tokensData, {
-        commitMessage,
-        versionString,
-        releaseNotes,
-      });
+      // Fallback: if nothing configured, push raw-json to latest repo
+      if (filesByIntegrationId.size === 0) {
+        const { data: fallback } = await supabase
+          .from("github_integrations")
+          .select("id")
+          .eq("project_id", projectId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!fallback?.id) {
+          throw new Error(
+            "No GitHub repository selected. Connect a repo in Integrations and select it in Export Configuration.",
+          );
+        }
+        filesByIntegrationId.set(
+          fallback.id,
+          filesForFormat("raw-json", tokens),
+        );
+      }
+
+      // Create PR(s) per repo with files for that repo
+      const prUrls: string[] = [];
+      for (const [integrationId, files] of filesByIntegrationId.entries()) {
+        // Deduplicate by filename to avoid duplicates within same repo
+        const deduped = Array.from(
+          new Map(files.map((f) => [f.filename, f])).values(),
+        );
+        const { prUrl } = await pushToGitHub(integrationId, deduped, {
+          commitMessage,
+          versionString,
+          releaseNotes,
+        });
+        prUrls.push(prUrl);
+      }
 
       // Create release record
       const { data: releaseData, error: releaseError } = await supabase
@@ -694,7 +904,7 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
         .in("id", changeIds);
 
       // Show success with PR link (user merges PR to publish to main)
-      setSuccess(prUrl);
+      setSuccessUrls(prUrls);
     } catch (error) {
       console.error("Error creating release:", error);
       setError(
@@ -778,27 +988,28 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
             </div>
           )}
 
-          {success && (
+          {successUrls.length > 0 && (
             <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 space-y-2">
               <p className="font-medium">
                 Release created — pull request opened
               </p>
               <p className="text-muted-foreground">
-                Merge the PR to update{" "}
-                <code className="text-xs bg-green-100 px-1 rounded">
-                  tokens.json
-                </code>{" "}
-                on your default branch.
+                Merge the PR to update exported token files on your default
+                branch.
               </p>
               <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={success}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-green-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-green-700"
-                >
-                  View pull request
-                </a>
+                {successUrls.map((url, idx) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-green-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-green-700"
+                  >
+                    View pull request
+                    {successUrls.length > 1 ? ` ${idx + 1}` : ""}
+                  </a>
+                ))}
                 <Button
                   variant="outline"
                   size="sm"
