@@ -331,414 +331,203 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
     }
   };
 
-  const pushToGitHub = async (tokensData: any) => {
-    try {
-      const supabase = createSupabaseBrowserClient();
+  const pushToGitHub = async (
+    tokensData: any,
+    options: {
+      commitMessage: string;
+      versionString: string;
+      releaseNotes?: string;
+    },
+  ): Promise<{ prUrl: string }> => {
+    const { commitMessage, versionString, releaseNotes = "" } = options;
 
-      // Get GitHub integration settings
-      const { data: githubConfig } = await supabase
-        .from("github_integrations")
-        .select("*")
-        .eq("project_id", projectId)
-        .single();
+    const supabase = createSupabaseBrowserClient();
 
-      if (!githubConfig || !githubConfig.verified) {
-        throw new Error(
-          "GitHub integration not configured or verified. Please set up GitHub integration first.",
-        );
-      }
+    const { data: githubConfig } = await supabase
+      .from("github_integrations")
+      .select("*")
+      .eq("project_id", projectId)
+      .single();
 
-      const { access_token, repository_owner, repository_name, branch_name } =
-        githubConfig;
-
-      // First, verify repository access
-      const repoUrl = `https://api.github.com/repos/${repository_owner}/${repository_name}`;
-      const repoResponse = await fetch(repoUrl, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-
-      if (!repoResponse.ok) {
-        const repoError = await repoResponse.json();
-        if (repoResponse.status === 404) {
-          throw new Error(
-            `Repository ${repository_owner}/${repository_name} not found or not accessible. Please check the repository name and ensure your token has access.`,
-          );
-        } else if (repoResponse.status === 403) {
-          throw new Error(
-            `Access denied to repository ${repository_owner}/${repository_name}. Please ensure your personal access token has 'Contents' write permissions.`,
-          );
-        }
-        throw new Error(
-          `Repository access error: ${repoError.message || "Unknown error"}`,
-        );
-      }
-
-      const repoData = await repoResponse.json();
-
-      // Check if we have push access
-      if (!repoData.permissions?.push) {
-        throw new Error(
-          `No write access to repository ${repository_owner}/${repository_name}. Please ensure your personal access token has 'Contents' write permissions and you have push access to the repository.`,
-        );
-      }
-
-      // GitHub API endpoint for creating/updating files
-      const apiUrl = `https://api.github.com/repos/${repository_owner}/${repository_name}/contents/tokens.json`;
-
-      // Function to get latest commit SHA from branch
-      const getLatestCommitSha = async (): Promise<string | null> => {
-        try {
-          const branchUrl = `https://api.github.com/repos/${repository_owner}/${repository_name}/branches/${branch_name || "main"}`;
-          const branchResponse = await fetch(branchUrl, {
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-              Accept: "application/vnd.github+json",
-              "X-GitHub-Api-Version": "2022-11-28",
-            },
-          });
-
-          if (branchResponse.ok) {
-            const branchData = await branchResponse.json();
-            console.log("Latest commit SHA:", branchData.commit.sha);
-            return branchData.commit.sha;
-          }
-          return null;
-        } catch (error) {
-          console.log("Could not get latest commit SHA:", error);
-          return null;
-        }
-      };
-
-      // Function to get current file SHA and content with fallback methods
-      const getCurrentFileInfo = async (): Promise<{
-        sha: string | null;
-        content: string | null;
-      }> => {
-        try {
-          // Method 1: Try the standard contents API
-          const getResponse = await fetch(
-            apiUrl + `?ref=${branch_name || "main"}&_=${Date.now()}`,
-            {
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                Accept: "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-                "Cache-Control": "no-cache",
-                Pragma: "no-cache",
-              },
-            },
-          );
-
-          if (getResponse.ok) {
-            const fileData = await getResponse.json();
-            console.log("File exists - Full file data:", fileData);
-            console.log("Current file SHA:", fileData.sha);
-            console.log("File size:", fileData.size);
-            // Decode the base64 content to compare
-            const currentContent = fileData.content
-              ? atob(fileData.content.replace(/\s/g, ""))
-              : null;
-            return { sha: fileData.sha, content: currentContent };
-          } else if (getResponse.status === 404) {
-            // File doesn't exist yet
-            console.log("File does not exist (404), will create new file");
-            return { sha: null, content: null };
-          } else {
-            const fileError = await getResponse.json();
-            console.log("Error fetching file info:", fileError);
-
-            // Method 2: If contents API fails, try to get file info from tree
-            console.log("Trying alternative method to get file SHA...");
-            const latestCommit = await getLatestCommitSha();
-            if (latestCommit) {
-              const treeUrl = `https://api.github.com/repos/${repository_owner}/${repository_name}/git/trees/${latestCommit}?recursive=1`;
-              const treeResponse = await fetch(treeUrl, {
-                headers: {
-                  Authorization: `Bearer ${access_token}`,
-                  Accept: "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-                },
-              });
-
-              if (treeResponse.ok) {
-                const treeData = await treeResponse.json();
-                const tokenFile = treeData.tree.find(
-                  (item: any) => item.path === "tokens.json",
-                );
-                if (tokenFile) {
-                  console.log("Found file in tree with SHA:", tokenFile.sha);
-                  return { sha: tokenFile.sha, content: null };
-                }
-              }
-            }
-
-            throw new Error(
-              `Error checking existing file: ${fileError.message}`,
-            );
-          }
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message.includes("Error checking existing file")
-          ) {
-            throw error;
-          }
-          // File doesn't exist yet, that's okay
-          console.log("File does not exist yet, will create new file");
-          return { sha: null, content: null };
-        }
-      };
-
-      // Function to attempt file update with retry logic
-      const updateFileWithRetry = async (maxRetries = 5): Promise<any> => {
-        console.log(
-          `Starting updateFileWithRetry with maxRetries=${maxRetries}`,
-        );
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          console.log(`=== Starting attempt ${attempt}/${maxRetries} ===`);
-          try {
-            // Add a longer delay before fetching SHA to avoid race conditions
-            if (attempt > 1) {
-              console.log(`Waiting before attempt ${attempt}...`);
-              await new Promise((resolve) =>
-                setTimeout(resolve, 3000 + attempt * 1000),
-              ); // Increasing delay: 4s, 5s, 6s...
-            }
-
-            // Get fresh SHA and content for each attempt
-            const fileInfo = await getCurrentFileInfo();
-            let fileSha = fileInfo.sha;
-            const latestCommitSha = await getLatestCommitSha();
-            console.log(`Attempt ${attempt}: File SHA:`, fileSha);
-            console.log(
-              `Attempt ${attempt}: Latest commit SHA:`,
-              latestCommitSha,
-            );
-            console.log(
-              `Attempt ${attempt}: Current content length:`,
-              fileInfo.content?.length || 0,
-            );
-
-            // If we don't have a file SHA but this is a 422 error, the file likely exists
-            // Let's try a brute force approach: delete any existing file first
-            if (!fileSha && attempt === 1) {
-              console.log(
-                "No SHA found but GitHub might expect one. Trying brute force delete first...",
-              );
-
-              try {
-                // Try to delete the file using a wildcard approach
-                // First, let's try to get ALL files and find tokens.json
-                const contentsUrl = `https://api.github.com/repos/${repository_owner}/${repository_name}/contents?ref=${branch_name || "main"}`;
-                const contentsResponse = await fetch(contentsUrl, {
-                  headers: {
-                    Authorization: `Bearer ${access_token}`,
-                    Accept: "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                  },
-                });
-
-                if (contentsResponse.ok) {
-                  const contents = await contentsResponse.json();
-                  const tokensFile = contents.find(
-                    (file: any) => file.name === "tokens.json",
-                  );
-                  if (tokensFile) {
-                    console.log(
-                      "Found tokens.json in directory listing with SHA:",
-                      tokensFile.sha,
-                    );
-                    // Update our fileSha with the found SHA
-                    fileSha = tokensFile.sha;
-                  }
-                }
-              } catch (error) {
-                console.log("Could not get directory listing:", error);
-              }
-            }
-
-            const fileContent = JSON.stringify(tokensData, null, 2);
-
-            // Check if content is actually different
-            if (fileInfo.content && fileInfo.content === fileContent) {
-              console.log(
-                "Content is identical to existing file, skipping update",
-              );
-              return { message: "No changes needed - content is identical" };
-            }
-
-            const encodedContent = btoa(
-              unescape(encodeURIComponent(fileContent)),
-            );
-
-            const payload: any = {
-              message: commitMessage,
-              content: encodedContent,
-              branch: branch_name || "main",
-            };
-
-            if (fileSha) {
-              payload.sha = fileSha;
-              console.log(`Including SHA in payload: ${fileSha}`);
-            } else {
-              console.log("No SHA - creating new file");
-            }
-
-            console.log(
-              "Payload being sent:",
-              JSON.stringify(payload, null, 2),
-            );
-
-            const response = await fetch(apiUrl, {
-              method: "PUT",
-              headers: {
-                Authorization: `Bearer ${access_token}`,
-                Accept: "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(payload),
-            });
-
-            if (response.ok) {
-              return await response.json();
-            }
-
-            const errorData = await response.json();
-            console.log(
-              `GitHub API error on attempt ${attempt}:`,
-              response.status,
-              errorData,
-            );
-
-            // If it's a SHA mismatch (409 conflict) and we have more retries, try a different approach
-            if (response.status === 409 && attempt < maxRetries) {
-              console.log(
-                `SHA conflict detected on attempt ${attempt}/${maxRetries}, trying delete-and-recreate approach...`,
-              );
-
-              // Try delete and recreate approach
-              if (fileSha) {
-                try {
-                  console.log("Attempting to delete existing file first...");
-                  const deleteResponse = await fetch(apiUrl, {
-                    method: "DELETE",
-                    headers: {
-                      Authorization: `Bearer ${access_token}`,
-                      Accept: "application/vnd.github+json",
-                      "X-GitHub-Api-Version": "2022-11-28",
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      message: `Delete tokens.json before recreating (Release: ${commitMessage})`,
-                      sha: fileSha,
-                      branch: branch_name || "main",
-                    }),
-                  });
-
-                  if (deleteResponse.ok) {
-                    console.log(
-                      "File deleted successfully, now creating new file...",
-                    );
-                    // Wait a moment for the deletion to propagate
-                    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-                    // Create new file without SHA
-                    const createPayload = {
-                      message: commitMessage,
-                      content: encodedContent,
-                      branch: branch_name || "main",
-                    };
-
-                    const createResponse = await fetch(apiUrl, {
-                      method: "PUT",
-                      headers: {
-                        Authorization: `Bearer ${access_token}`,
-                        Accept: "application/vnd.github+json",
-                        "X-GitHub-Api-Version": "2022-11-28",
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify(createPayload),
-                    });
-
-                    if (createResponse.ok) {
-                      console.log("File recreated successfully!");
-                      return await createResponse.json();
-                    } else {
-                      console.log(
-                        "Failed to recreate file:",
-                        await createResponse.text(),
-                      );
-                    }
-                  } else {
-                    console.log(
-                      "Failed to delete file:",
-                      await deleteResponse.text(),
-                    );
-                  }
-                } catch (deleteError) {
-                  console.log(
-                    "Delete-and-recreate approach failed:",
-                    deleteError,
-                  );
-                }
-              }
-
-              console.log("Falling back to normal retry...");
-              continue; // Fall back to normal retry
-            }
-
-            console.log(
-              `Not retrying: status=${response.status}, attempt=${attempt}, maxRetries=${maxRetries}`,
-            );
-
-            // Handle other errors (only reached if not a retryable 409 error)
-            if (response.status === 404) {
-              throw new Error(
-                `Repository or file path not found. Please check the repository name and ensure your token has access.`,
-              );
-            } else if (response.status === 403) {
-              throw new Error(
-                `Access denied. Please ensure your personal access token has 'Contents' write permissions.`,
-              );
-            } else if (response.status === 422) {
-              console.log("422 Error details:", errorData);
-              console.log("File SHA was:", fileSha);
-              console.log("Payload sent:", payload);
-              throw new Error(
-                `Invalid request: ${errorData.message}. Please check your repository settings.`,
-              );
-            } else if (response.status === 409) {
-              throw new Error(
-                `SHA conflict: File was modified during release. All retry attempts exhausted. ${errorData.message}`,
-              );
-            }
-
-            throw new Error(
-              `GitHub API error (${response.status}): ${errorData.message}`,
-            );
-          } catch (error) {
-            if (attempt === maxRetries) {
-              throw error;
-            }
-            console.log(`Attempt ${attempt} failed, retrying...`, error);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
-        }
-
-        throw new Error("Failed to update file after maximum retries");
-      };
-
-      // The retry function already handles the response and returns the parsed JSON
-      return await updateFileWithRetry();
-    } catch (error) {
-      console.error("Error pushing to GitHub:", error);
-      throw error;
+    if (!githubConfig || !githubConfig.verified) {
+      throw new Error(
+        "GitHub integration not configured or verified. Please set up GitHub integration first.",
+      );
     }
+
+    const { access_token, repository_owner, repository_name, branch_name } =
+      githubConfig;
+    const baseBranchName = branch_name || "main";
+
+    const authHeaders = {
+      Authorization: `Bearer ${access_token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    const api = (path: string, init?: RequestInit) =>
+      fetch(
+        `https://api.github.com/repos/${repository_owner}/${repository_name}${path}`,
+        {
+          ...init,
+          headers: {
+            ...authHeaders,
+            ...(init?.headers as Record<string, string> | undefined),
+          },
+        },
+      );
+
+    // Verify repo access
+    const repoResponse = await api("");
+    if (!repoResponse.ok) {
+      const repoError = await repoResponse.json();
+      if (repoResponse.status === 404) {
+        throw new Error(
+          `Repository ${repository_owner}/${repository_name} not found or not accessible.`,
+        );
+      }
+      if (repoResponse.status === 403) {
+        throw new Error(
+          `Access denied. Please ensure your token has 'Contents' and 'Pull requests' write permissions.`,
+        );
+      }
+      throw new Error(
+        `Repository error: ${(repoError as { message?: string }).message || "Unknown"}`,
+      );
+    }
+
+    const repoData = await repoResponse.json();
+    if (!repoData.permissions?.push) {
+      throw new Error(
+        `No write access to ${repository_owner}/${repository_name}. Token needs push and pull request permissions.`,
+      );
+    }
+
+    // 1) Get latest commit on base branch
+    const branchRes = await api(
+      `/branches/${encodeURIComponent(baseBranchName)}`,
+    );
+    if (!branchRes.ok) {
+      const err = await branchRes.json();
+      throw new Error(
+        `Could not get base branch ${baseBranchName}: ${(err as { message?: string }).message || branchRes.status}`,
+      );
+    }
+    const branchData = await branchRes.json();
+    const baseCommitSha = branchData.commit.sha;
+
+    // 2) Get base commit to get tree SHA
+    const commitRes = await api(`/git/commits/${baseCommitSha}`);
+    if (!commitRes.ok) {
+      const err = await commitRes.json();
+      throw new Error(
+        `Could not get base commit: ${(err as { message?: string }).message || commitRes.status}`,
+      );
+    }
+    const commitData = await commitRes.json();
+    const baseTreeSha = commitData.tree.sha;
+
+    // 3) Create blob with new tokens.json content
+    const fileContent = JSON.stringify(tokensData, null, 2);
+    const encodedContent = btoa(unescape(encodeURIComponent(fileContent)));
+    const blobRes = await api("/git/blobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: encodedContent,
+        encoding: "base64",
+      }),
+    });
+    if (!blobRes.ok) {
+      const err = await blobRes.json();
+      throw new Error(
+        `Failed to create blob: ${(err as { message?: string }).message || blobRes.status}`,
+      );
+    }
+    const blobData = await blobRes.json();
+    const blobSha = blobData.sha;
+
+    // 4) Create tree with tokens.json (replaces or adds file in base tree)
+    const treeRes = await api("/git/trees", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: [
+          {
+            path: "tokens.json",
+            mode: "100644",
+            type: "blob",
+            sha: blobSha,
+          },
+        ],
+      }),
+    });
+    if (!treeRes.ok) {
+      const err = await treeRes.json();
+      throw new Error(
+        `Failed to create tree: ${(err as { message?: string }).message || treeRes.status}`,
+      );
+    }
+    const treeData = await treeRes.json();
+    const newTreeSha = treeData.sha;
+
+    // 5) Create commit on new branch
+    const newBranchName = `fragmento/release-${versionString.replace(/^v/, "")}-${Date.now()}`;
+    const createCommitRes = await api("/git/commits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: commitMessage,
+        tree: newTreeSha,
+        parents: [baseCommitSha],
+      }),
+    });
+    if (!createCommitRes.ok) {
+      const err = await createCommitRes.json();
+      throw new Error(
+        `Failed to create commit: ${(err as { message?: string }).message || createCommitRes.status}`,
+      );
+    }
+    const newCommitData = await createCommitRes.json();
+    const newCommitSha = newCommitData.sha;
+
+    // 6) Create ref for new branch
+    const refRes = await api("/git/refs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref: `refs/heads/${newBranchName}`,
+        sha: newCommitSha,
+      }),
+    });
+    if (!refRes.ok) {
+      const err = await refRes.json();
+      throw new Error(
+        `Failed to create branch: ${(err as { message?: string }).message || refRes.status}`,
+      );
+    }
+
+    // 7) Create pull request (base = main, head = new branch)
+    const prRes = await api("/pulls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: commitMessage,
+        head: newBranchName,
+        base: baseBranchName,
+        body: releaseNotes
+          ? `## Release ${versionString}\n\n${releaseNotes}`
+          : `Design tokens release ${versionString}. Merge this PR to update \`tokens.json\` on ${baseBranchName}.`,
+      }),
+    });
+    if (!prRes.ok) {
+      const err = await prRes.json();
+      throw new Error(
+        `Failed to create pull request: ${(err as { message?: string }).message || prRes.status}`,
+      );
+    }
+    const prData = await prRes.json();
+    return { prUrl: prData.html_url };
   };
 
   const sendSlackNotification = async (
@@ -842,6 +631,8 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
 
   const handleCreateRelease = async () => {
     setLoading(true);
+    setError("");
+    setSuccess("");
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -863,8 +654,12 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
         throw new Error("Failed to generate tokens JSON");
       }
 
-      // Push tokens to GitHub
-      await pushToGitHub(tokensData);
+      // Create PR with token changes (no direct push to main)
+      const { prUrl } = await pushToGitHub(tokensData, {
+        commitMessage,
+        versionString,
+        releaseNotes,
+      });
 
       // Create release record
       const { data: releaseData, error: releaseError } = await supabase
@@ -898,8 +693,8 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
         .update({ released_in: releaseData.id })
         .in("id", changeIds);
 
-      // Navigate back to versions page
-      router.push(`/projects/${projectId}/versions`);
+      // Show success with PR link (user merges PR to publish to main)
+      setSuccess(prUrl);
     } catch (error) {
       console.error("Error creating release:", error);
       setError(
@@ -980,6 +775,39 @@ export default function CreateReleasePage({ params }: CreateReleasePageProps) {
               >
                 Dismiss
               </button>
+            </div>
+          )}
+
+          {success && (
+            <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 space-y-2">
+              <p className="font-medium">
+                Release created — pull request opened
+              </p>
+              <p className="text-muted-foreground">
+                Merge the PR to update{" "}
+                <code className="text-xs bg-green-100 px-1 rounded">
+                  tokens.json
+                </code>{" "}
+                on your default branch.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={success}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-green-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-green-700"
+                >
+                  View pull request
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/projects/${projectId}/versions`)}
+                  className="border-green-300 text-green-800 hover:bg-green-100"
+                >
+                  Back to versions
+                </Button>
+              </div>
             </div>
           )}
 
