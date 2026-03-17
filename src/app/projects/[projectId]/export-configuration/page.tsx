@@ -2,12 +2,29 @@
 
 import { useEffect, useState, use } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileCode, Palette } from "lucide-react";
+import { Copy, Download, FileCode, Palette } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import JSZip from "jszip";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { Separator } from "@/components/ui/separator";
 
 interface ExportConfigurationPageProps {
   params: Promise<{ projectId: string }>;
@@ -29,15 +46,36 @@ interface Token {
   token_set_id: string;
 }
 
-export default function ExportConfigurationPage({ params }: ExportConfigurationPageProps) {
+type ExportFormat = "shadcn" | "android" | "ios" | "tailwind" | "raw-json";
+
+interface GeneratedFile {
+  filename: string;
+  contents: string;
+}
+
+export default function ExportConfigurationPage({
+  params,
+}: ExportConfigurationPageProps) {
   const { projectId } = use(params);
-  
+
   // State
   const [tokenSets, setTokenSets] = useState<TokenSet[]>([]);
   const [selectedSets, setSelectedSets] = useState<string[]>([]);
   const [allSetsSelected, setAllSetsSelected] = useState(true);
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [generatedOutput, setGeneratedOutput] = useState<string>("");
+  const [generatedFiles, setGeneratedFiles] = useState<
+    Record<ExportFormat, GeneratedFile[]>
+  >({} as Record<ExportFormat, GeneratedFile[]>);
+  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("shadcn");
+  const [enabledFormats, setEnabledFormats] = useState<
+    Record<ExportFormat, boolean>
+  >({
+    shadcn: true,
+    android: true,
+    ios: true,
+    tailwind: true,
+    "raw-json": true,
+  });
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
@@ -46,22 +84,25 @@ export default function ExportConfigurationPage({ params }: ExportConfigurationP
     const loadData = async () => {
       try {
         const supabase = createSupabaseBrowserClient();
-        
+
         // Load token sets
         const { data: setsData } = await supabase
-          .from('token_sets')
-          .select(`
+          .from("token_sets")
+          .select(
+            `
             id,
             name,
             description
-          `)
-          .eq('project_id', projectId)
-          .order('name');
+          `,
+          )
+          .eq("project_id", projectId)
+          .order("name");
 
         // Load all tokens
         const { data: tokensData } = await supabase
-          .from('tokens')
-          .select(`
+          .from("tokens")
+          .select(
+            `
             id,
             name,
             type,
@@ -69,31 +110,34 @@ export default function ExportConfigurationPage({ params }: ExportConfigurationP
             resolved_value,
             token_set_id,
             token_sets!inner(name)
-          `)
-          .eq('project_id', projectId)
-          .order('name');
+          `,
+          )
+          .eq("project_id", projectId)
+          .order("name");
 
         if (setsData && tokensData) {
           // Count tokens for each set
-          const tokenCounts = tokensData.reduce((acc, token) => {
-            acc[token.token_set_id] = (acc[token.token_set_id] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
+          const tokenCounts = tokensData.reduce(
+            (acc, token) => {
+              acc[token.token_set_id] = (acc[token.token_set_id] || 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>,
+          );
 
-          const formattedSets = setsData.map(set => ({
+          const formattedSets = setsData.map((set) => ({
             id: set.id,
             name: set.name,
             description: set.description,
-            tokenCount: tokenCounts[set.id] || 0
+            tokenCount: tokenCounts[set.id] || 0,
           }));
-          
+
           setTokenSets(formattedSets);
-          setSelectedSets(formattedSets.map(set => set.id));
+          setSelectedSets(formattedSets.map((set) => set.id));
           setTokens(tokensData as Token[]);
         }
-
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
@@ -105,9 +149,9 @@ export default function ExportConfigurationPage({ params }: ExportConfigurationP
   // Handle set selection
   const handleSetSelection = (setId: string, checked: boolean) => {
     if (checked) {
-      setSelectedSets(prev => [...prev, setId]);
+      setSelectedSets((prev) => [...prev, setId]);
     } else {
-      setSelectedSets(prev => prev.filter(id => id !== setId));
+      setSelectedSets((prev) => prev.filter((id) => id !== setId));
       setAllSetsSelected(false);
     }
   };
@@ -116,50 +160,40 @@ export default function ExportConfigurationPage({ params }: ExportConfigurationP
   const handleAllSetsSelection = (checked: boolean) => {
     setAllSetsSelected(checked);
     if (checked) {
-      setSelectedSets(tokenSets.map(set => set.id));
+      setSelectedSets(tokenSets.map((set) => set.id));
     } else {
       setSelectedSets([]);
     }
   };
 
-  // Generate shadcn format output
-  const generateShadcnOutput = async () => {
-    setGenerating(true);
-    
-    try {
-      // Filter tokens by selected sets
-      const filteredTokens = tokens.filter(token => 
-        selectedSets.includes(token.token_set_id)
-      );
+  const getFilteredTokens = () =>
+    tokens.filter((token) => selectedSets.includes(token.token_set_id));
 
-      // Group tokens by type and generate CSS variables
-      const cssVariables: Record<string, string> = {};
-      
-      filteredTokens.forEach(token => {
-        const value = token.resolved_value || token.value;
-        let cssValue = value;
-        
-        // Convert token values to CSS format
-        if (token.type === 'color') {
-          cssValue = typeof value === 'string' ? value : JSON.stringify(value);
-        } else if (token.type === 'dimension') {
-          cssValue = typeof value === 'string' ? value : `${value}px`;
-        } else if (token.type === 'fontFamily') {
-          cssValue = Array.isArray(value) ? value.join(', ') : value;
-        } else {
-          cssValue = typeof value === 'string' ? value : JSON.stringify(value);
-        }
-        
-        // Convert token name to CSS variable format
-        const cssVarName = `--${token.name.replace(/[.\s]/g, '-').toLowerCase()}`;
-        cssVariables[cssVarName] = cssValue;
-      });
+  const generateShadcnFiles = (filteredTokens: Token[]): GeneratedFile[] => {
+    const cssVariables: Record<string, string> = {};
 
-      // Generate CSS output in shadcn format
-      const cssOutput = `:root {
+    filteredTokens.forEach((token) => {
+      const value = token.resolved_value || token.value;
+      let cssValue = value;
+
+      if (token.type === "color") {
+        cssValue = typeof value === "string" ? value : JSON.stringify(value);
+      } else if (token.type === "dimension") {
+        cssValue = typeof value === "string" ? value : `${value}px`;
+      } else if (token.type === "fontFamily") {
+        cssValue = Array.isArray(value) ? value.join(", ") : value;
+      } else {
+        cssValue = typeof value === "string" ? value : JSON.stringify(value);
+      }
+
+      const cssVarName = `--${token.name.replace(/[.\s]/g, "-").toLowerCase()}`;
+      cssVariables[cssVarName] = cssValue;
+    });
+
+    const cssOutput = `:root {
 ${Object.entries(cssVariables)
   .map(([name, value]) => `  ${name}: ${value};`)
-  .join('\n')}
+  .join("\n")}
 }
 
 @layer base {
@@ -171,45 +205,219 @@ ${Object.entries(cssVariables)
   }
 }`;
 
-      setGeneratedOutput(cssOutput);
-      
+    return [
+      {
+        filename: "tokens.css",
+        contents: cssOutput,
+      },
+    ];
+  };
+
+  const generateAndroidFiles = (filteredTokens: Token[]): GeneratedFile[] => {
+    const colorTokens = filteredTokens.filter((t) => t.type === "color");
+    const dimTokens = filteredTokens.filter((t) => t.type === "dimension");
+
+    const toAndroidName = (name: string) =>
+      name.replace(/[.\s]/g, "_").toLowerCase();
+
+    const colorsXml = `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+${colorTokens
+  .map((token) => {
+    const value = token.resolved_value || token.value;
+    return `  <color name="${toAndroidName(token.name)}">${value}</color>`;
+  })
+  .join("\n")}
+</resources>`;
+
+    const dimensXml =
+      dimTokens.length === 0
+        ? ""
+        : `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+${dimTokens
+  .map((token) => {
+    const value = token.resolved_value || token.value;
+    const dim = typeof value === "string" ? value : `${value}px`;
+    return `  <dimen name="${toAndroidName(token.name)}">${dim}</dimen>`;
+  })
+  .join("\n")}
+</resources>`;
+
+    const files: GeneratedFile[] = [
+      { filename: "values/colors.xml", contents: colorsXml },
+    ];
+
+    if (dimensXml) {
+      files.push({
+        filename: "values/dimens.xml",
+        contents: dimensXml,
+      });
+    }
+
+    return files;
+  };
+
+  const generateIosFiles = (filteredTokens: Token[]): GeneratedFile[] => {
+    const swiftColors = filteredTokens
+      .filter((t) => t.type === "color")
+      .map((token) => {
+        const value = token.resolved_value || token.value;
+        return `  static let ${token.name
+          .replace(/[.\s]/g, "_")
+          .toLowerCase()} = Color("${value}")`;
+      })
+      .join("\n");
+
+    const swiftFile = `import SwiftUI
+
+struct DesignTokens {
+${swiftColors}
+}`;
+
+    const jsonObject = filteredTokens.reduce(
+      (acc, token) => {
+        acc[token.name] = {
+          value: token.resolved_value || token.value,
+          type: token.type,
+        };
+        return acc;
+      },
+      {} as Record<string, any>,
+    );
+
+    const jsonFile = JSON.stringify(jsonObject, null, 2);
+
+    return [
+      {
+        filename: "DesignTokens.swift",
+        contents: swiftFile,
+      },
+      {
+        filename: "tokens.json",
+        contents: jsonFile,
+      },
+    ];
+  };
+
+  const generateTailwindFiles = (filteredTokens: Token[]): GeneratedFile[] => {
+    const tailwindColors: Record<string, string> = {};
+
+    filteredTokens
+      .filter((t) => t.type === "color")
+      .forEach((token) => {
+        const value = token.resolved_value || token.value;
+        const name = token.name.replace(/\s+/g, "-").toLowerCase();
+        tailwindColors[name] = value;
+      });
+
+    const jsFile = `/** Auto‑generated by Fragmento */
+module.exports = {
+  theme: {
+    extend: {
+      colors: ${JSON.stringify(tailwindColors, null, 2)}
+    }
+  }
+};`;
+
+    return [
+      {
+        filename: "tailwind.tokens.config.js",
+        contents: jsFile,
+      },
+    ];
+  };
+
+  const generateRawJsonFiles = (filteredTokens: Token[]): GeneratedFile[] => {
+    const jsonData = {
+      tokens: filteredTokens.reduce(
+        (acc, token) => {
+          const setName =
+            tokenSets.find((set) => set.id === token.token_set_id)?.name ||
+            "default";
+          if (!acc[setName]) {
+            acc[setName] = {};
+          }
+          acc[setName][token.name] = {
+            value: token.resolved_value || token.value,
+            type: token.type,
+          };
+          return acc;
+        },
+        {} as Record<string, Record<string, any>>,
+      ),
+      metadata: {
+        exportedAt: new Date().toISOString(),
+        selectedSets: selectedSets.length,
+        totalTokens: filteredTokens.length,
+      },
+    };
+
+    return [
+      {
+        filename: "tokens.json",
+        contents: JSON.stringify(jsonData, null, 2),
+      },
+    ];
+  };
+
+  // Auto-generate files whenever data or configuration changes
+  useEffect(() => {
+    if (!tokens.length || !selectedSets.length) return;
+    void handleGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens, selectedSets, enabledFormats]);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const filteredTokens = getFilteredTokens();
+
+      const newFiles: Record<ExportFormat, GeneratedFile[]> = {} as Record<
+        ExportFormat,
+        GeneratedFile[]
+      >;
+
+      if (enabledFormats.shadcn) {
+        newFiles["shadcn"] = generateShadcnFiles(filteredTokens);
+      }
+      if (enabledFormats.android) {
+        newFiles["android"] = generateAndroidFiles(filteredTokens);
+      }
+      if (enabledFormats.ios) {
+        newFiles["ios"] = generateIosFiles(filteredTokens);
+      }
+      if (enabledFormats.tailwind) {
+        newFiles["tailwind"] = generateTailwindFiles(filteredTokens);
+      }
+      if (enabledFormats["raw-json"]) {
+        newFiles["raw-json"] = generateRawJsonFiles(filteredTokens);
+      }
+
+      setGeneratedFiles(newFiles);
     } catch (error) {
-      console.error('Error generating output:', error);
+      console.error("Error generating files:", error);
     } finally {
       setGenerating(false);
     }
   };
 
-  // Download JSON file
-  const downloadJson = () => {
-    const filteredTokens = tokens.filter(token => 
-      selectedSets.includes(token.token_set_id)
-    );
+  const handleDownloadZip = async () => {
+    const filesForFormat = generatedFiles[selectedFormat];
+    if (!filesForFormat || filesForFormat.length === 0) return;
 
-    const jsonData = {
-      tokens: filteredTokens.reduce((acc, token) => {
-        const setName = tokenSets.find(set => set.id === token.token_set_id)?.name || 'default';
-        if (!acc[setName]) {
-          acc[setName] = {};
-        }
-        acc[setName][token.name] = {
-          value: token.resolved_value || token.value,
-          type: token.type
-        };
-        return acc;
-      }, {} as Record<string, Record<string, any>>),
-      metadata: {
-        exportedAt: new Date().toISOString(),
-        selectedSets: selectedSets.length,
-        totalTokens: filteredTokens.length
-      }
-    };
+    const zip = new JSZip();
+    filesForFormat.forEach((file) => {
+      zip.file(file.filename, file.contents);
+    });
 
-    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+    const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `tokens-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `fragmento-tokens-${selectedFormat}-${
+      new Date().toISOString().split("T")[0]
+    }.zip`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -239,9 +447,6 @@ ${Object.entries(cssVariables)
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold">Export Configuration</h1>
-            <p className="text-sm text-muted-foreground">
-              Configure and export your design tokens in shadcn format
-            </p>
           </div>
         </div>
       </header>
@@ -252,83 +457,166 @@ ${Object.entries(cssVariables)
         <div className="border-r p-6 overflow-y-auto">
           <div className="space-y-6">
             {/* Token Sets Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Palette className="h-5 w-5" />
-                  Token Sets
+            <Card className="gap-2 py-3">
+              <CardHeader className="px-3">
+                <CardTitle className="text-base font-semibold ">
+                  Token sets
                 </CardTitle>
-                <CardDescription>
-                  Choose which token sets to include in the export
-                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* All Sets Option */}
-                <div className="flex items-center space-x-2 p-3 rounded-lg border bg-muted/50">
-                  <Checkbox
-                    id="all-sets"
-                    checked={allSetsSelected}
-                    onCheckedChange={handleAllSetsSelection}
-                  />
-                  <Label htmlFor="all-sets" className="flex-1 font-medium">
-                    All Sets
-                  </Label>
-                  <Badge variant="secondary">
-                    {tokenSets.reduce((sum, set) => sum + set.tokenCount, 0)} tokens
-                  </Badge>
+              <Separator className=" mt-0 mb-2" />
+              <CardContent className="space-y-1.5 px-3">
+                <div className="flex items-center justify-between rounded-md px-1 py-0">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="all-sets"
+                      checked={allSetsSelected}
+                      onCheckedChange={handleAllSetsSelection}
+                    />
+                    <Label
+                      htmlFor="all-sets"
+                      className="text-sm font-medium leading-none"
+                    >
+                      All sets
+                    </Label>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-muted px-3 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {tokenSets.reduce((sum, set) => sum + set.tokenCount, 0)}{" "}
+                    tokens
+                  </span>
                 </div>
 
-                {/* Individual Sets */}
-                <div className="space-y-2">
+                {/* Individual sets */}
+                <div className="space-y-1.5">
                   {tokenSets.map((set) => (
-                    <div key={set.id} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-muted/25">
-                      <Checkbox
-                        id={set.id}
-                        checked={selectedSets.includes(set.id)}
-                        onCheckedChange={(checked) => handleSetSelection(set.id, checked as boolean)}
-                      />
-                      <Label htmlFor={set.id} className="flex-1">
-                        <div className="font-medium">{set.name}</div>
-                        {set.description && (
-                          <div className="text-xs text-muted-foreground">{set.description}</div>
-                        )}
-                      </Label>
-                      <Badge variant="outline" className="text-xs">
-                        {set.tokenCount}
-                      </Badge>
+                    <div
+                      key={set.id}
+                      className="flex items-center justify-between rounded-md px-1 py-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id={set.id}
+                          checked={selectedSets.includes(set.id)}
+                          onCheckedChange={(checked) =>
+                            handleSetSelection(set.id, checked as boolean)
+                          }
+                        />
+                        <Label
+                          htmlFor={set.id}
+                          className="text-sm font-medium lowercase first-letter:uppercase"
+                        >
+                          {set.name}
+                        </Label>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-muted mt-0.5 px-3 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {set.tokenCount} tokens
+                      </span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Output Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileCode className="h-5 w-5" />
-                  Output Configuration
+            <Card className="border border-border/60 gap-2">
+              <CardHeader className="pb-0">
+                <CardTitle className="text-[15px] font-semibold">
+                  Output configuration
                 </CardTitle>
-                <CardDescription>
-                  Tokens will be exported in shadcn/ui CSS variables format
-                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-muted/50 border">
-                    <div className="text-sm font-medium mb-2">Format: CSS Variables</div>
-                    <div className="text-xs text-muted-foreground">
-                      Tokens will be converted to CSS custom properties compatible with shadcn/ui theming system
-                    </div>
+              <CardContent className="space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-sm font-semibold">shadcn/react</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Exports tokens as CSS variables compatible with shadcn/ui
+                      and React projects. Generates a tokens.css file that can
+                      be directly imported into your codebase.
+                    </p>
                   </div>
-                  
-                  <Button 
-                    onClick={generateShadcnOutput}
-                    disabled={selectedSets.length === 0 || generating}
-                    className="w-full"
-                  >
-                    {generating ? "Generating..." : "Generate Files"}
-                  </Button>
+                  <Switch
+                    checked={enabledFormats.shadcn}
+                    onCheckedChange={(checked) =>
+                      setEnabledFormats((prev) => ({
+                        ...prev,
+                        shadcn: checked,
+                      }))
+                    }
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-sm font-semibold">Android</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Exports tokens as Android resource files (colors.xml,
+                      dimens.xml) following Material Design conventions, ready
+                      to use in your Android project.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enabledFormats.android}
+                    onCheckedChange={(checked) =>
+                      setEnabledFormats((prev) => ({
+                        ...prev,
+                        android: checked,
+                      }))
+                    }
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-sm font-semibold">iOS</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Exports tokens as Swift constants or JSON, following iOS
+                      naming conventions and ready to integrate into your Xcode
+                      project.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enabledFormats.ios}
+                    onCheckedChange={(checked) =>
+                      setEnabledFormats((prev) => ({ ...prev, ios: checked }))
+                    }
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-sm font-semibold">Tailwind</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Exports tokens as a Tailwind theme extension you can merge
+                      into your tailwind.config.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enabledFormats.tailwind}
+                    onCheckedChange={(checked) =>
+                      setEnabledFormats((prev) => ({
+                        ...prev,
+                        tailwind: checked,
+                      }))
+                    }
+                    className="shrink-0"
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="text-sm font-semibold">Raw JSON</div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Exports tokens in a raw JSON structure for custom
+                      pipelines and tooling.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enabledFormats["raw-json"]}
+                    onCheckedChange={(checked) =>
+                      setEnabledFormats((prev) => ({
+                        ...prev,
+                        "raw-json": checked,
+                      }))
+                    }
+                    className="shrink-0"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -338,19 +626,74 @@ ${Object.entries(cssVariables)
         {/* Right Panel - Output Preview */}
         <div className="p-6 overflow-y-auto flex flex-col">
           <div className="space-y-4 flex-1">
-            {/* Header with Download Button */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Generated Output</h2>
-              {generatedOutput && (
-                <Button onClick={downloadJson} variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download JSON
-                </Button>
-              )}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center">
+                <h2 className="text-lg font-semibold">Generated output</h2>
+              </div>
+
+              <div className="flex gap-3">
+                {Object.keys(generatedFiles).length > 0 && (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => {
+                        const content =
+                          generatedFiles[selectedFormat]?.[0]?.contents;
+                        if (!content) return;
+                        navigator.clipboard
+                          ?.writeText(content)
+                          .then(() => {
+                            toast.success("Code copied to clipboard");
+                          })
+                          .catch(() => {
+                            toast.error("Unable to copy code");
+                          });
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={handleDownloadZip}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                {Object.keys(generatedFiles).length > 0 && (
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={(value) =>
+                      setSelectedFormat(value as ExportFormat)
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[140px] px-2 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      {Object.entries(enabledFormats)
+                        .filter(([, enabled]) => enabled)
+                        .map(([format]) => (
+                          <SelectItem key={format} value={format}>
+                            {format === "shadcn" && "shadcn/react"}
+                            {format === "android" && "Android"}
+                            {format === "ios" && "iOS"}
+                            {format === "tailwind" && "Tailwind"}
+                            {format === "raw-json" && "Raw JSON"}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
 
             {/* Output Display */}
-            {!generatedOutput ? (
+            {Object.keys(generatedFiles).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-96 text-center border-2 border-dashed border-muted-foreground/25 rounded-lg w-full">
                 <FileCode className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <h3 className="font-medium mb-2">No output generated</h3>
@@ -360,17 +703,15 @@ ${Object.entries(cssVariables)
               </div>
             ) : (
               <div className="space-y-4 w-full">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="outline">CSS Variables</Badge>
-                  <span>•</span>
-                  <span>{selectedSets.length} sets selected</span>
-                  <span>•</span>
-                  <span>{tokens.filter(t => selectedSets.includes(t.token_set_id)).length} tokens</span>
-                </div>
-                
                 <div className="relative w-full">
-                  <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto border w-full min-w-0 max-w-none whitespace-pre-wrap break-words" style={{ width: '100%' }}>
-                    <code className="block w-full whitespace-pre-wrap">{generatedOutput}</code>
+                  <pre
+                    className="text-xs bg-muted p-4 rounded-lg overflow-x-auto border w-full min-w-0 max-w-none whitespace-pre-wrap break-words"
+                    style={{ width: "100%" }}
+                  >
+                    <code className="block w-full whitespace-pre-wrap">
+                      {generatedFiles[selectedFormat]?.[0]?.contents ??
+                        "// No file for this format"}
+                    </code>
                   </pre>
                 </div>
               </div>
