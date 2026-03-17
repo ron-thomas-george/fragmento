@@ -79,6 +79,7 @@ create table if not exists github_integrations (
   repository_name text not null,
   branch_name text not null default 'main',
   verified boolean default false,
+  created_by text,
   created_at timestamptz default now()
 );
 
@@ -88,5 +89,6 @@ create table if not exists slack_integrations (
   webhook_url text not null,
   channel_name text not null,
   verified boolean default false,
+  created_by text,
   created_at timestamptz default now()
 );
