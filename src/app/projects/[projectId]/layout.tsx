@@ -13,11 +13,11 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Palette,
-  History,
-  Settings2,
   Link2,
-  SlidersHorizontal,
   ChevronDown,
+  Settings,
+  GitFork,
+  FileUp,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { normalizePlan } from "@/lib/plans";
@@ -204,20 +204,22 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
               <button
                 type="button"
                 onClick={() => setSwitcherOpen((open) => !open)}
-                className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left text-xs hover:bg-muted"
+                className="flex w-full items-center gap-3 rounded-lg p-2 mt-3 text-left text-xs hover:bg-slate-100"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-background text-[11px] font-medium">
-                  {((currentOrg?.name ?? "Fragmento") || "F")
-                    .charAt(0)
-                    .toUpperCase()}
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-200">
+                  <span className="text-[16px] font-medium text-slate-950">
+                    {((currentProject?.name ?? "Fragmento") || "F")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </span>
                 </div>
                 {!sidebarCollapsed && (
                   <div className="flex flex-1 items-center justify-between gap-2">
                     <div className="flex flex-col">
-                      <span className="text-xs font-medium leading-tight">
+                      <span className="text-[14px] font-semibold leading-tight">
                         {currentProject?.name ?? "Loading project"}
                       </span>
-                      <span className="text-[11px] text-muted-foreground leading-tight">
+                      <span className="text-[14px] font-normal leading-tight text-slate-500">
                         {currentOrg?.name ?? "Organization"}
                       </span>
                     </div>
@@ -264,21 +266,6 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
                     </button>
                   </div>
 
-                  <div className="my-2 h-px bg-border" />
-
-                  {currentProject && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSwitcherOpen(false);
-                        router.push(`/projects/${currentProject.id}/settings`);
-                      }}
-                      className="flex w-full items-center rounded-md px-2 py-1 text-left hover:bg-muted"
-                    >
-                      <span className="text-xs">Project settings</span>
-                    </button>
-                  )}
-
                   {currentOrg && (
                     <>
                       <div className="mt-2 px-1 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -299,58 +286,63 @@ export default function ProjectLayout({ children }: ProjectLayoutProps) {
                 </div>
               )}
             </SidebarHeader>
-            <SidebarNav className="flex-1">
-              <SidebarNavItem
-                active={pathname?.includes("/tokens")}
-                onClick={() =>
-                  projectId &&
-                  router.push(`/projects/${projectId}/tokens?set=global`)
-                }
-              >
-                <Palette className="h-4 w-4" />
-                {!sidebarCollapsed && (
-                  <span className="flex-1">Tokens &amp; Sets</span>
-                )}
-              </SidebarNavItem>
-              <SidebarNavItem
-                active={pathname?.includes("/versions")}
-                onClick={() =>
-                  projectId && router.push(`/projects/${projectId}/versions`)
-                }
-              >
-                <History className="h-4 w-4" />
-                {!sidebarCollapsed && <span>Versions &amp; Releases</span>}
-              </SidebarNavItem>
-              <SidebarNavItem
-                active={pathname?.includes("/export-configuration")}
-                onClick={() =>
-                  projectId &&
-                  router.push(`/projects/${projectId}/export-configuration`)
-                }
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                {!sidebarCollapsed && <span>Export configuration</span>}
-              </SidebarNavItem>
-              <SidebarNavItem
-                active={pathname?.includes("/integrations")}
-                onClick={() =>
-                  projectId &&
-                  router.push(`/projects/${projectId}/integrations`)
-                }
-              >
-                <Link2 className="h-4 w-4" />
-                {!sidebarCollapsed && <span>Integrations</span>}
-              </SidebarNavItem>
-              <SidebarNavItem
-                active={pathname?.includes("/settings")}
-                onClick={() =>
-                  projectId && router.push(`/projects/${projectId}/settings`)
-                }
-              >
-                <Settings2 className="h-4 w-4" />
-                {!sidebarCollapsed && <span>Project settings</span>}
-              </SidebarNavItem>
-            </SidebarNav>
+            <div className="flex flex-1 flex-col">
+              <SidebarNav>
+                <SidebarNavItem
+                  active={pathname?.includes("/tokens")}
+                  onClick={() =>
+                    projectId &&
+                    router.push(`/projects/${projectId}/tokens?set=global`)
+                  }
+                >
+                  <Palette className="h-4 w-4" strokeWidth={1.6} />
+                  {!sidebarCollapsed && (
+                    <span className="flex-1">Tokens &amp; Sets</span>
+                  )}
+                </SidebarNavItem>
+                <SidebarNavItem
+                  active={pathname?.includes("/versions")}
+                  onClick={() =>
+                    projectId && router.push(`/projects/${projectId}/versions`)
+                  }
+                >
+                  <GitFork className="h-4 w-4" strokeWidth={1.6} />
+                  {!sidebarCollapsed && <span>Versions &amp; Releases</span>}
+                </SidebarNavItem>
+                <SidebarNavItem
+                  active={pathname?.includes("/export-configuration")}
+                  onClick={() =>
+                    projectId &&
+                    router.push(`/projects/${projectId}/export-configuration`)
+                  }
+                >
+                  <FileUp className="h-4 w-4" strokeWidth={1.6} />
+                  {!sidebarCollapsed && <span>Export configuration</span>}
+                </SidebarNavItem>
+              </SidebarNav>
+
+              <SidebarNav className="mt-auto pt-0">
+                <SidebarNavItem
+                  active={pathname?.includes("/integrations")}
+                  onClick={() =>
+                    projectId &&
+                    router.push(`/projects/${projectId}/integrations`)
+                  }
+                >
+                  <Link2 className="h-4 w-4" strokeWidth={1.6} />
+                  {!sidebarCollapsed && <span>Integrations</span>}
+                </SidebarNavItem>
+                <SidebarNavItem
+                  active={pathname?.includes("/settings")}
+                  onClick={() =>
+                    projectId && router.push(`/projects/${projectId}/settings`)
+                  }
+                >
+                  <Settings className="h-4 w-4" strokeWidth={1.6} />
+                  {!sidebarCollapsed && <span>Project settings</span>}
+                </SidebarNavItem>
+              </SidebarNav>
+            </div>
             <SidebarFooter>
               {!sidebarCollapsed && (
                 <SidebarAccountFooter
