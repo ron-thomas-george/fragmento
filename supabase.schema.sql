@@ -92,3 +92,13 @@ create table if not exists slack_integrations (
   created_by text,
   created_at timestamptz default now()
 );
+
+create table if not exists export_repository_configs (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references projects(id) on delete cascade,
+  format text not null check (format in ('shadcn','android','ios','tailwind','raw-json')),
+  github_integration_id uuid references github_integrations(id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (project_id, format)
+);

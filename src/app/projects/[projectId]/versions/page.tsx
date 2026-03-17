@@ -393,11 +393,31 @@ export default function VersionsPage({ params }: VersionsPageProps) {
       const supabase = createSupabaseBrowserClient();
 
       // Get GitHub integration settings
-      const { data: githubConfig } = await supabase
-        .from("github_integrations")
-        .select("repository_owner, repository_name")
+      const { data: repoConfig } = await supabase
+        .from("export_repository_configs")
+        .select("github_integration_id")
         .eq("project_id", projectId)
-        .single();
+        .eq("format", "raw-json")
+        .maybeSingle();
+
+      const configuredIntegrationId = repoConfig?.github_integration_id as
+        | string
+        | null
+        | undefined;
+
+      const githubConfigQuery = supabase
+        .from("github_integrations")
+        .select("repository_owner, repository_name");
+
+      const { data: githubConfig } = configuredIntegrationId
+        ? await githubConfigQuery
+            .eq("id", configuredIntegrationId)
+            .maybeSingle()
+        : await githubConfigQuery
+            .eq("project_id", projectId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
       if (!githubConfig) {
         console.warn("No GitHub integration found for this project");
