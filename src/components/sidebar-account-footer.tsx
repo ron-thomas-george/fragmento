@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 
 import { canUpgrade } from "@/lib/plans";
+import { Separator } from "./ui/separator";
 
 interface SidebarAccountFooterUser {
   id: string;
@@ -30,7 +31,7 @@ export function SidebarAccountFooter({
     <div className="space-y-3">
       {canUpgrade(currentPlan) && !isLoadingPlan && (
         <div className="rounded-lg bg-primary/10 p-3">
-          <p className="text-xs font-medium text-primary">
+          <p className="text-xs font-medium text-primary pb-2">
             Upgrade to a paid plan to get access to more features
           </p>
           <Link
@@ -42,7 +43,9 @@ export function SidebarAccountFooter({
         </div>
       )}
 
-      <div className="flex items-center gap-3 rounded-md px-1 py-1">
+      <Separator />
+
+      <div className="flex items-center gap-3 rounded-md px-1 py-1 pb-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
           {currentUser?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
